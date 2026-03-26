@@ -1,0 +1,16 @@
+[remap]
+
+importer="spine.atlas"
+type="SpineAtlasResource"
+uid="uid://6s7gde0gyfor"
+path="res://.godot/imported/char_391_rosmon.atlas-41563ed9b2b8ddd77850373a7dd07278.spatlas"
+
+[deps]
+
+source_file="res://Rosmontis/char_391_rosmon.atlas"
+dest_files=["res://.godot/imported/char_391_rosmon.atlas-41563ed9b2b8ddd77850373a7dd07278.spatlas"]
+
+[params]
+
+normal_map_prefix="n"
+specular_map_prefix="s"

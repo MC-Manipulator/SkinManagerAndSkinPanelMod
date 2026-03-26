@@ -1,0 +1,69 @@
+[gd_scene load_steps=5 format=3 uid="uid://cx0507ytgfqy8"]
+
+[ext_resource type="Texture2D" uid="uid://cqa5bwlvgol52" path="res://Picture/SkinPanelBackground.png" id="1_1didq"]
+[ext_resource type="Texture2D" uid="uid://cf14nneysnpme" path="res://Picture/SkinPanelLeftArrow.png" id="2_fov5s"]
+[ext_resource type="Texture2D" uid="uid://c51unov81vqjs" path="res://Picture/SkinPanelRightArrow.png" id="3_bbvpj"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_26tgo"]
+font_size = 86
+
+[node name="Control" type="Control"]
+layout_mode = 3
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 185.0
+offset_top = -779.0
+offset_right = 2107.8618
+offset_bottom = 521.2886
+grow_horizontal = 0
+grow_vertical = 0
+scale = Vector2(0.48047665, 0.48047665)
+
+[node name="NinePatchRect" type="NinePatchRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_1didq")
+metadata/_edit_lock_ = true
+
+[node name="SpineSprite" type="SpineSprite" parent="."]
+position = Vector2(963.62646, 809.61273)
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 461.0
+offset_top = 327.0
+offset_right = -453.0
+offset_bottom = -314.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="LeftArrow" type="TextureButton" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 2
+size_flags_vertical = 4
+texture_normal = ExtResource("2_fov5s")
+
+[node name="SkinNameLabel" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 8
+text = "迷迭香"
+label_settings = SubResource("LabelSettings_26tgo")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="RightArrow" type="TextureButton" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 10
+size_flags_vertical = 4
+texture_normal = ExtResource("3_bbvpj")

@@ -1,0 +1,8 @@
+[gd_resource type="SpineSkeletonDataResource" load_steps=3 format=3 uid="uid://hxv3soxstrwf"]
+
+[ext_resource type="SpineAtlasResource" uid="uid://depgfp06h1rnv" path="res://Spine/Rosmontis/build_char_391_rosmon.atlas" id="1_ca5rh"]
+[ext_resource type="SpineSkeletonFileResource" uid="uid://b1xaw7c6v2laj" path="res://Spine/Rosmontis/build_char_391_rosmon.skel" id="2_su4t5"]
+
+[resource]
+atlas_res = ExtResource("1_ca5rh")
+skeleton_file_res = ExtResource("2_su4t5")

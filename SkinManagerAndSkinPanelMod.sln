@@ -1,0 +1,19 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkinManagerAndSkinPanelMod", "SkinManagerAndSkinPanelMod.csproj", "{A2B9519D-1922-4276-B458-2DA109F3FE7C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		ExportDebug|Any CPU = ExportDebug|Any CPU
+		ExportRelease|Any CPU = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A2B9519D-1922-4276-B458-2DA109F3FE7C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2B9519D-1922-4276-B458-2DA109F3FE7C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2B9519D-1922-4276-B458-2DA109F3FE7C}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{A2B9519D-1922-4276-B458-2DA109F3FE7C}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{A2B9519D-1922-4276-B458-2DA109F3FE7C}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{A2B9519D-1922-4276-B458-2DA109F3FE7C}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+	EndGlobalSection
+EndGlobal

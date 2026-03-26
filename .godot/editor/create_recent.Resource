@@ -1,0 +1,3 @@
+ShaderMaterial
+Shader
+SpineSkeletonDataResource

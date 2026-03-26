@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=3 uid="uid://3vo55fajvbvy"]
+
+[ext_resource type="Texture2D" uid="uid://cm8evh4856lwd" path="res://Picture/Shadow.png" id="1_a0r0h"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_o5fuv"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_a0r0h")
+}],
+"loop": true,
+"name": &"default",
+"speed": 5.0
+}]
+
+[node name="Node2D" type="Node2D"]
+
+[node name="Shadow" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_o5fuv")

@@ -1,0 +1,8 @@
+res://Scripts/UI/UniversalSkinPanel.cs
+res://MainFile.cs
+res://Scene/UniversalSkinPanel.tscn
+res://Meterials/GlowOutlineMeterialInMerchant.tres
+res://Rosmontis/Rosmontis.tres
+res://Shaders/OutlineShaderInMerchant.gdshader
+res://Shaders/outline.gdshader
+res://Materials/GoldOutlineMaterial.tres

@@ -1,0 +1,14 @@
+[remap]
+
+importer="spine.skel"
+type="SpineSkeletonFileResource"
+uid="uid://b1xaw7c6v2laj"
+path="res://.godot/imported/build_char_391_rosmon.skel-f8affe7dc29acd76a7b39613e253c461.spskel"
+
+[deps]
+
+source_file="res://Rosmontis/build_char_391_rosmon.skel"
+dest_files=["res://.godot/imported/build_char_391_rosmon.skel-f8affe7dc29acd76a7b39613e253c461.spskel"]
+
+[params]
+
