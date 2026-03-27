@@ -68,6 +68,17 @@ public class SkinData
     public string OstyRestSiteAnimName = "Sit";
     
     public Dictionary<string, VoiceEvent> VoiceEvents = new Dictionary<string, VoiceEvent>();
+    
+    public Dictionary<string, string> CustomImpactVfxMap = new Dictionary<string, string>();
+    
+    // (可选) 默认的专属打击特效。如果某张攻击牌不在字典里，但它是该角色打出的，就播这个。
+    public string DefaultImpactVfxPath = ""; 
+    
+    // 特效缩放比例，如果是巨剑砸击，可能需要放大
+    public Vector2 ImpactVfxScale = new Vector2(1f, 1f);
+    public Vector2 ImpactVfxOffset = new Vector2(0f, 0f);
+
+    public string IconScenePath  = "";
 }
 
 // 暴露给外部调用的静态 API

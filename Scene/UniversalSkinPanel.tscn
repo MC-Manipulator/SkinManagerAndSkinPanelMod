@@ -14,38 +14,44 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 185.0
-offset_top = -779.0
-offset_right = 2107.8618
-offset_bottom = 521.2886
+offset_left = 392.99988
+offset_top = -281.0
+offset_right = 1702.5327
+offset_bottom = 626.77893
 grow_horizontal = 0
 grow_vertical = 0
-scale = Vector2(0.48047665, 0.48047665)
+scale = Vector2(0.29182002, 0.29182002)
 
 [node name="NinePatchRect" type="NinePatchRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 3.0669565
+offset_top = -9.200426
+offset_right = -248.41248
+offset_bottom = -180.94238
 grow_horizontal = 2
 grow_vertical = 2
+scale = Vector2(1.2363003, 1.2363003)
 texture = ExtResource("1_1didq")
-metadata/_edit_lock_ = true
 
 [node name="SpineSprite" type="SpineSprite" parent="."]
-position = Vector2(963.62646, 809.61273)
+position = Vector2(661.36694, 699.06104)
+scale = Vector2(1.2363003, 1.2363003)
 
 [node name="HBoxContainer" type="HBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 461.0
-offset_top = 327.0
-offset_right = -453.0
-offset_bottom = -314.0
+offset_left = 178.1925
+offset_top = 47.974808
+offset_right = -358.50134
+offset_bottom = -231.1059
 grow_horizontal = 2
 grow_vertical = 2
+scale = Vector2(1.2363003, 1.2363003)
 alignment = 1
 
 [node name="LeftArrow" type="TextureButton" parent="HBoxContainer"]

@@ -26,7 +26,7 @@ public class VoiceEvent
     // 工具方法：判断是否可以播放
     public bool CanPlay()
     {
-        Log.Info("检查是否可播放");
+        //Log.Info("检查是否可播放");
         // 1. 检查概率
         if (Probability < 1.0f && GD.Randf() > Probability) return false;
 
@@ -37,7 +37,7 @@ public class VoiceEvent
             if ((currentTime - _lastPlayTimeMsec) < (ulong)(Cooldown * 1000)) return false;
             _lastPlayTimeMsec = currentTime; // 记录本次播放时间
         }
-        Log.Info("可以播放");
+        //Log.Info("可以播放");
         return true;
     }
 

@@ -159,6 +159,7 @@ public static class UniversalScenePatches
             if (i >= visualsList.Count) break;
             
             string charId = playersList[i].Character.Id.Entry;
+            ulong playerId = playersList[i].NetId; // 🌟 拿到玩家 ID
             SkinData skin = SkinApi.GetSelectedSkin(charId);
             
             if (skin == null) continue;
@@ -184,6 +185,7 @@ public static class UniversalScenePatches
 
                 // 打上专属标签，记录它是哪个角色，方便后面播动画
                 characterVisual.SetMeta("UniversalSkinCharId", charId);
+                characterVisual.SetMeta("UniversalSkinPlayerId", playerId); // 🌟 注入玩家ID元数据
                 
                 if (skin.MerchantAnimMap.ContainsKey("relaxed_loop"))
                     spineController.GetAnimationState().AddAnimation(skin.MerchantAnimMap["relaxed_loop"], 0f, true); // 默认初始动作
@@ -238,7 +240,7 @@ public static class UniversalScenePatches
                     parent.AddChild(touchArea);
 
                     // 6. 绑定悬停事件，这次我们把材质挂在“幕布”上！
-                    touchArea.GuiInput += (InputEvent e) => OnMerchantCharacterTouched(e, characterVisual, targetSpineNode, skin);
+                    touchArea.GuiInput += (InputEvent e) => OnMerchantCharacterTouched(e, characterVisual, targetSpineNode, skin, playerId); // 🌟 传入 playerId
                     touchArea.MouseEntered += () => OnMerchantCharacterHovered(displayRect);
                     touchArea.MouseExited += () => OnMerchantCharacterUnhovered(displayRect);
                 }
@@ -322,27 +324,19 @@ public static class UniversalScenePatches
         }
     }
     
-    private static void OnMerchantCharacterTouched(InputEvent e, NMerchantCharacter characterVisual, Node2D spineNode, SkinData skin)
+    private static void OnMerchantCharacterTouched(InputEvent e, NMerchantCharacter characterVisual, Node2D spineNode, SkinData skin, ulong playerId)
     {
-        // 只响应鼠标左键点击，并且是在按下那一刻 (Pressed = true)
         if (e is InputEventMouseButton mouseBtn && mouseBtn.ButtonIndex == MouseButton.Left && mouseBtn.Pressed)
         {
-            MegaCrit.Sts2.Core.Logging.Log.Info($"玩家触摸了商店里的角色 [{skin.SkinId}]");
-        
             MegaSprite spineController = new MegaSprite(spineNode);
             MegaAnimationState animationState = spineController.GetAnimationState();
 
-            // 1. 播放触摸动画 (loop 设为 false)
-            // 建议使用 SetAnimation (覆盖当前动画)，或者在一个更高的 Track (比如 Track 1) 播放，以免打断底层逻辑
             animationState.SetAnimation(skin.MerchantTouchAnimName, loop: false);
-        
-            // 2. (可选) 播放完毕后，让角色退回到待机动画
-            // Spine 会自动排队执行 AddAnimation
             string idleAnim = skin.MerchantAnimMap.ContainsKey("relaxed_loop") ? skin.MerchantAnimMap["relaxed_loop"] : "relaxed_loop";
             animationState.AddAnimation(idleAnim, 0f, true);
         
-            // 3. (可选) 如果你想加点声音，调用游戏原版的音效接口
-            VoicePlayer.PlayEvent(characterVisual.GetMeta("UniversalSkinCharId").AsString(), "Touch");
+            // 🌟 精准呼叫 VoicePlayer
+            VoicePlayer.PlayEvent(playerId, characterVisual.GetMeta("UniversalSkinCharId").AsString(), "Touch");
         }
     }
     
@@ -461,6 +455,7 @@ public static class UniversalScenePatches
         foreach (Player player in runState.Players)
         {
             string charId = player.Character.Id.Entry;
+            ulong playerID = player.NetId;
             SkinData skin = SkinApi.GetSelectedSkin(charId);
             
             if (skin == null) continue;
@@ -494,8 +489,8 @@ public static class UniversalScenePatches
             // ================= 🌟 核心修复：转场后的字幕保障 🌟 =================
             // 在角色被强行搬家到 GameOver 界面的容器后，
             // 立即停止上一句（可能还在老容器里放着）的语音和字幕，并强制在这个新环境里重播一句遗言！
-            VoicePlayer.Stop(); 
-            VoicePlayer.PlayEvent(charId, "Die");
+            VoicePlayer.Stop();
+            VoicePlayer.PlayEvent(playerID, charId, "Die");
             // =================================================================
         }
     }

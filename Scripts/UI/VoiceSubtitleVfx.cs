@@ -42,6 +42,8 @@ public partial class VoiceSubtitleVfx : Label
     
     public override void _Process(double delta)
     {
+        // 🌟 安全防护：即使是 _Process，也最好检查一下有效性
+        if (!GodotObject.IsInstanceValid(this)) return;
         // 每一帧都把 _floatOffset 应用到 Position 上
         // 这样即使外部代码强行改了 GlobalPosition (比如角色移动)，上浮效果依然是相对叠加的
         Position = new Vector2(Position.X, Position.Y - _floatOffset * (float)delta);
@@ -49,7 +51,8 @@ public partial class VoiceSubtitleVfx : Label
 
     public async Task PlayAnim(float duration)
     {
-        if (!IsInsideTree()) return;
+        // 🌟 修复 1：IsInstanceValid 必须放在最左边！
+        if (!GodotObject.IsInstanceValid(this) || !IsInsideTree()) return;
 
         // --- 阶段 1：整体淡入 (框体) ---
         if (_fadeTween != null && _fadeTween.IsValid()) _fadeTween.Kill();
@@ -72,13 +75,24 @@ public partial class VoiceSubtitleVfx : Label
                   
         // 等待语音总时长结束
         await Task.Delay((int)(duration * 1000));
-        if (!IsInsideTree() || !IsInstanceValid(this)) return;
+        
+        // ================= 🌟 核心修复 🌟 =================
+        // 从 await 醒来后，第一件事必须是检查对象是否还在内存里！
+        // 如果被 VoicePlayer.Stop() 删掉了，直接 return，绝不访问 Godot API
+        if (!GodotObject.IsInstanceValid(this)) return;
+        if (!IsInsideTree()) return;
+        // ==================================================
 
         // --- 阶段 3：缓缓淡出消失 ---
         _fadeTween = CreateTween();
         _fadeTween.TweenProperty(this, "modulate:a", 0f, 0.5f).SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.In);
                   
         await ToSignal(_fadeTween, Tween.SignalName.Finished);
-        QueueFree();
+        
+        // 再次检查，防止在淡出期间被销毁
+        if (GodotObject.IsInstanceValid(this))
+        {
+            QueueFree();
+        }
     }
 }

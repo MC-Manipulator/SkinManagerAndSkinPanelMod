@@ -1,4 +1,5 @@
 ﻿using Godot;
+using HarmonyLib;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Helpers;
@@ -7,7 +8,8 @@ using MegaCrit.Sts2.Core.Nodes.Combat;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.Rooms;
 using MegaCrit.Sts2.Core.Nodes.Screens.GameOverScreen;
-using MegaCrit.Sts2.Core.Nodes.Screens.Shops; // NGame
+using MegaCrit.Sts2.Core.Nodes.Screens.Shops;
+using MegaCrit.Sts2.Core.Runs; // NGame
 
 namespace SkinManagerAndSkinPanelMod;
 
@@ -20,57 +22,63 @@ public static class VoicePlayer
     private static VoiceSubtitleVfx _currentSubtitle;
     //"EnterCombat" "Die" "KillBoss" "KillEnemy" "TurnStart" "PlayCard_CardID" "PlayCard_Any" "Touch"
     // 播放指定角色、指定事件的语音
-    public static void PlayEvent(string characterId, string eventName)
+    
+    // 🌟 升级：记录正在 AFK 计时的 玩家ID 和 对应的 角色ID
+    private static ulong _currentAfkPlayerId = 0;
+    private static string _currentAfkCharacterId = "";
+    
+    // ================= 🌟 核心播放入口 🌟 =================
+    // 参数变为 playerId 和 characterId
+    public static void PlayEvent(ulong playerId, string characterId, string eventName)
     {
-        Log.Info("触发语音事件" +  eventName);
         SkinData skin = SkinApi.GetSelectedSkin(characterId);
-        
-        if (skin == null || !skin.VoiceEvents.ContainsKey(eventName)) return;
+        if (skin == null || skin.VoiceEvents == null || !skin.VoiceEvents.ContainsKey(eventName)) return;
 
         VoiceEvent voiceEvent = skin.VoiceEvents[eventName];
-        
-        // 检查概率和冷却
         if (!voiceEvent.CanPlay()) return;
 
         var line = voiceEvent.GetRandomLine();
         string audioPath = line.AudioPath;
-        Log.Info("语音路径" +  audioPath);
         if (string.IsNullOrEmpty(audioPath)) return;
 
         PlayAudioPath(audioPath);
-        // 🌟 修复 3：打断上一句字幕
+        ClearSubtitle();
+
         if (!string.IsNullOrEmpty(line.Subtitle))
         {
-            ShowSubtitle(characterId, line);
-        }
-        else
-        {
-            // 如果新语音没有字幕，清空屏幕上的旧字幕
-            ClearSubtitle();
+            // 传入 playerId 精确定位
+            ShowSubtitle(playerId, line);
         }
     }
 
-    // 🌟 核心升级：动态寻找合适的父节点挂载字幕
-    private static void ShowSubtitle(string characterId, VoiceLine line)
+
+// 🌟 核心升级：解耦挂载节点与坐标参照节点
+    private static void ShowSubtitle(ulong playerId, VoiceLine line)
     {
-        // 尝试获取角色的视觉根节点 (NCreatureVisuals 或 NMerchantCharacter 等)
-        Node parentNode = GetCharacterVisualNode(characterId, out Vector2 localOffset);
-        if (parentNode == null) return;
+        // 1. 寻找该角色的视觉节点 (只用来获取坐标)
+        Node2D visualNode = GetCharacterVisualNode(playerId);
+        if (visualNode == null) return;
+
+        // 2. 寻找绝对安全的挂载父节点！(解耦！)
+        Node safeParent = GetSafeContainerForSubtitle();
+        if (safeParent == null) return;
 
         _currentSubtitle = new VoiceSubtitleVfx();
         _currentSubtitle.FullText = line.Subtitle; 
         
-        // ★关键：直接把字幕挂在角色视觉节点内部
-        // 这样不管这个角色节点被移到哪个界面（Reparent），字幕都会跟着走，且层级与角色平齐！
-        parentNode.AddChildSafely(_currentSubtitle);
-        
-        // 保证字幕在角色节点内部处于最上层（盖住角色的头，但不盖住外部的系统 UI）
-        parentNode.MoveChild(_currentSubtitle, -1);
+        // 挂载到安全的容器中 (这通常是当前房间的特效层，它会被游戏整体安全销毁)
+        safeParent.AddChildSafely(_currentSubtitle);
 
-        // 设置在头顶
-        // 注意：因为现在是作为子节点挂载，坐标直接写局部偏移即可，不用再加 GlobalPosition！
-        Vector2 headPosition = localOffset + new Vector2(0f, -250f);
-        _currentSubtitle.Position = headPosition;
+        // 如果你希望特效在它自己那个容器的最上层：
+        // safeParent.MoveChild(_currentSubtitle, -1);
+
+        // 3. 将字幕设置在角色的头顶
+        // 关键点：不管挂载在哪，GlobalPosition 是统一的世界坐标！
+        // 找到角色 GlobalPosition，减去 250f 即为头顶
+        Vector2 headGlobalPos = visualNode.GlobalPosition + new Vector2(0f, -250f);
+        
+        // 设置字幕的世界坐标
+        _currentSubtitle.GlobalPosition = headGlobalPos;
         
         // 居中偏移 (补偿宽度)
         _currentSubtitle.Position -= new Vector2(200f, 0f);
@@ -78,30 +86,53 @@ public static class VoicePlayer
         TaskHelper.RunSafely(_currentSubtitle.PlayAnim(line.Duration));
     }
     
-    // 🌟 定位角色视觉节点，并返回它，用于直接作为字幕的父节点
-    private static Node GetCharacterVisualNode(string characterId, out Vector2 localOffset)
+    // 🌟 寻找安全的挂载容器 (专为字幕避难而生)
+    private static Node GetSafeContainerForSubtitle()
     {
-        localOffset = Vector2.Zero;
+        // 优先挂载在结算界面本身
+        var goScreen = NRun.Instance?.GlobalUi?.Overlays?.GetChildren().OfType<NGameOverScreen>().FirstOrDefault();
+        if (goScreen != null) return goScreen;
 
-        // 1. 优先找结算界面 (GameOverScreen) 里的角色节点
+        // 战斗房：挂在专门用来放伤害数字和火花的容器，极其安全
+        if (NCombatRoom.Instance != null && NCombatRoom.Instance.CombatVfxContainer != null)
+        {
+            return NCombatRoom.Instance.CombatVfxContainer;
+        }
+
+        // 商店：挂在商店房间根节点
+        if (NMerchantRoom.Instance != null) return NMerchantRoom.Instance;
+
+        // 休息处：挂在休息处房间根节点
+        if (NRestSiteRoom.Instance != null) return NRestSiteRoom.Instance;
+
+        return null;
+    }
+    
+    // 🌟 仅用于提供坐标的“雷达” (不再作为父节点)
+    private static Node2D GetCharacterVisualNode(ulong playerId)
+    {
+        // 1. 找结算界面 (GameOverScreen)
         if (NRun.Instance?.GlobalUi?.Overlays?.GetChildren().OfType<NGameOverScreen>().FirstOrDefault() is NGameOverScreen goScreen)
         {
             var container = goScreen.GetNodeOrNull<Control>("%CreatureContainer");
             if (container != null)
             {
-                foreach (Node child in container.GetChildren())
+                var runState = AccessTools.Field(typeof(NGameOverScreen), "_runState").GetValue(goScreen) as RunState;
+                if (runState != null)
                 {
-                    // 在 GameOver 里，我们要么找到 NCreatureVisuals，要么找到 NMerchantCharacter
-                    if (child is NCreatureVisuals vis)
+                    int playerIndex = runState.Players.ToList().FindIndex(p => p.NetId == playerId);
+                    if (playerIndex >= 0 && playerIndex < container.GetChildCount())
                     {
-                        return vis; // 直接返回这个视觉节点
-                    }
-                    if (child is MegaCrit.Sts2.Core.Nodes.Screens.Shops.NMerchantCharacter merchVis)
-                    {
-                        if (merchVis.HasMeta("UniversalSkinCharId") && merchVis.GetMeta("UniversalSkinCharId").AsString() == characterId)
-                        {
+                        var targetNode = container.GetChild(playerIndex);
+                        
+                        // 由于 GameOver 里的节点五花八门，我们尽量挖出真正的中心节点
+                        if (targetNode is MegaCrit.Sts2.Core.Nodes.Combat.NCreatureVisuals vis)
+                            return UniversalScenePatches.GetBody(vis) ?? vis;
+                            
+                        if (targetNode is MegaCrit.Sts2.Core.Nodes.Screens.Shops.NMerchantCharacter merchVis)
                             return merchVis;
-                        }
+
+                        if (targetNode is Node2D n2d) return n2d;
                     }
                 }
             }
@@ -110,10 +141,10 @@ public static class VoicePlayer
         // 2. 找战斗房间
         if (NCombatRoom.Instance != null)
         {
-            var creatureNode = NCombatRoom.Instance.CreatureNodes.FirstOrDefault(c => c.Entity.Player?.Character.Id.Entry == characterId);
+            var creatureNode = NCombatRoom.Instance.CreatureNodes.FirstOrDefault(c => c.Entity.Player?.NetId == playerId);
             if (creatureNode != null && creatureNode.Visuals != null)
             {
-                return creatureNode.Visuals; // 返回 NCreatureVisuals
+                return UniversalScenePatches.GetBody(creatureNode.Visuals) ?? creatureNode.Visuals;
             }
         }
 
@@ -122,9 +153,9 @@ public static class VoicePlayer
         {
             foreach (var visual in NMerchantRoom.Instance.PlayerVisuals)
             {
-                if (visual.HasMeta("UniversalSkinCharId") && visual.GetMeta("UniversalSkinCharId").AsString() == characterId)
+                if (visual.HasMeta("UniversalSkinPlayerId") && visual.GetMeta("UniversalSkinPlayerId").AsUInt64() == playerId)
                 {
-                    return visual; // 返回 NMerchantCharacter
+                    return visual;
                 }
             }
         }
@@ -132,10 +163,10 @@ public static class VoicePlayer
         // 4. 找休息处
         if (NRestSiteRoom.Instance != null)
         {
-            var restChar = NRestSiteRoom.Instance.Characters.FirstOrDefault(c => c.Player?.Character.Id.Entry == characterId);
+            var restChar = NRestSiteRoom.Instance.Characters.FirstOrDefault(c => c.Player?.NetId == playerId);
             if (restChar != null)
             {
-                return restChar; // 返回 NRestSiteCharacter
+                return restChar;
             }
         }
 
@@ -195,18 +226,18 @@ public static class VoicePlayer
     private static string _currentCharacterId;
     // 每次玩家有操作（打牌、回合开始）时调用此方法，重置计时器
     
-    public static void ResetAfkTimer(string characterId)
+    // ================= 🌟 待机计时器改造 🌟 =================
+    public static void ResetAfkTimer(ulong playerId, string characterId)
     {
-        _currentCharacterId = characterId;
+        _currentAfkPlayerId = playerId;
+        _currentAfkCharacterId = characterId;
 
-        // 如果没有初始化 Timer，就挂载一个到全局
         if (_afkTimer == null || !GodotObject.IsInstanceValid(_afkTimer))
         {
             _afkTimer = new Godot.Timer();
             _afkTimer.Name = "SkinModAfkTimer";
-            _afkTimer.OneShot = true;     // 不循环，等下次重置
-            _afkTimer.WaitTime = 15.0f;   // 默认 15 秒没操作视为待机
-            
+            _afkTimer.OneShot = true;     
+            _afkTimer.WaitTime = 15.0f;   
             _afkTimer.Timeout += OnAfkTimeout;
 
             if (NGame.Instance != null && GodotObject.IsInstanceValid(NGame.Instance))
@@ -215,12 +246,9 @@ public static class VoicePlayer
             }
             else return;
         }
-
-        // 重新开始计时
         _afkTimer.Start();
     }
 
-    // 当玩家回合结束、或者离开战斗时调用此方法，停止计时
     public static void StopAfkTimer()
     {
         if (_afkTimer != null && GodotObject.IsInstanceValid(_afkTimer))
@@ -231,26 +259,22 @@ public static class VoicePlayer
 
     private static void OnAfkTimeout()
     {
-        // 检查战斗状态
-        if (CombatManager.Instance != null && 
-            CombatManager.Instance.IsInProgress && 
-            CombatManager.Instance.IsPlayPhase)
+        if (CombatManager.Instance != null && CombatManager.Instance.IsInProgress && CombatManager.Instance.IsPlayPhase)
         {
-            // 🌟 修复 1：检查角色是否还活着
             var state = CombatManager.Instance.DebugOnlyGetState();
             if (state != null)
             {
-                var player = state.Players.FirstOrDefault(p => p.Character.Id.Entry == _currentCharacterId);
+                // 🌟 精准检查当前计时的玩家是否存活
+                var player = state.Players.FirstOrDefault(p => p.NetId == _currentAfkPlayerId);
                 if (player != null && player.Creature != null && player.Creature.IsDead)
                 {
-                    // 如果角色死了，直接停止计时，不再播待机语音
                     StopAfkTimer();
                     return;
                 }
             }
 
-            PlayEvent(_currentCharacterId, "IdleWait");
-            _afkTimer.Start(); // 播完重置
+            PlayEvent(_currentAfkPlayerId, _currentAfkCharacterId, "IdleWait");
+            _afkTimer.Start(); 
         }
     }
 }

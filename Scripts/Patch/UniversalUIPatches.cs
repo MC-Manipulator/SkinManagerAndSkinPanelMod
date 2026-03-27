@@ -1,11 +1,13 @@
 ﻿using HarmonyLib;
 using Godot;
+using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Models.Characters;
 using MegaCrit.Sts2.Core.Nodes.Screens.CharacterSelect;
 using MegaCrit.Sts2.Core.Nodes.Screens.MainMenu;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Models;
+using MegaCrit.sts2.Core.Nodes.TopBar;
 
 namespace SkinManagerAndSkinPanelMod;
 
@@ -82,6 +84,34 @@ public static class UniversalUIPatches
         }
     }
 
+    // 2. 注入面板
+    [HarmonyPatch(typeof(NTopBarPortrait), nameof(NTopBarPortrait.Initialize))]
+    [HarmonyPrefix]
+    public static bool ReplaceIcon(NTopBarPortrait __instance, Player player)
+    {
+        if (player == null || player.Character == null) return true;
+        
+        string charId = player.Character.Id.Entry;
+        SkinData skin = SkinApi.GetSelectedSkin(charId);
+        
+        if (skin == null) return true; 
+        
+        // 🌟 实时加载骨骼数据
+        PackedScene loadedIconData = null;
+        Log.Info(skin.IconScenePath);
+        if (!string.IsNullOrEmpty(skin.IconScenePath))
+        {
+            loadedIconData = GD.Load<PackedScene>(skin.IconScenePath);
+        }
+        
+        Log.Info("加载角色Icon");
+        if (loadedIconData == null) return true;
+
+        Control node = loadedIconData.Instantiate<Control>();
+        __instance.AddChildSafely(node);
+        return false;
+    }
+    
     // 4. 更新大背景
     public static void UpdateBackgroundToCurrentSkin(string characterId)
     {
@@ -106,4 +136,5 @@ public static class UniversalUIPatches
             }
         }
     }
+    
 }
