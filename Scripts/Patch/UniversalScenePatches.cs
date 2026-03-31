@@ -14,6 +14,8 @@ using MegaCrit.Sts2.Core.Nodes.Screens.GameOverScreen;
 using MegaCrit.Sts2.Core.Nodes.Screens.Shops;
 using MegaCrit.Sts2.Core.Animation;
 using MegaCrit.Sts2.Core.Nodes.Vfx;
+using SkinManagerAndSkinPanelMod.Scripts.Data;
+using SkinManagerAndSkinPanelMod.Scripts.Helper;
 
 namespace SkinManagerAndSkinPanelMod;
 
@@ -32,25 +34,36 @@ public static class UniversalScenePatches
         
         string charId = entity.Player.Character.Id.Entry;
         SkinData skin = SkinApi.GetSelectedSkin(charId);
+
+        if (skin == null || string.IsNullOrEmpty(skin.CombatSpineDataPath))
+        {
+            Log.Info("[皮肤管理器] 未读取到皮肤，或玩家角色spine路径为空，停止战斗的spine模型替换。");
+            return;
+        } 
         
-        if (skin == null) return; 
-        
-        // 🌟 实时加载骨骼数据
+        Log.Info("[皮肤管理器] 替换玩家角色战斗的spine模型。");
         Resource loadedSpineData = null;
         if (!string.IsNullOrEmpty(skin.CombatSpineDataPath))
         {
             loadedSpineData = GD.Load<Resource>(skin.CombatSpineDataPath);
         }
-        
-        if (loadedSpineData == null) return;
+
+        if (loadedSpineData == null)
+        {
+            Log.Error($"[皮肤管理器] 玩家角色战斗的spine资源未能成功加载。{skin.ModId} {skin.SkinId}");
+            return;
+        }
 
         var visuals = __instance.Visuals;
-        Node2D body = GetBody(visuals); // 见底部的反射辅助方法
-        if (body == null || !visuals.HasSpineAnimation) return;
+        Node2D body = VisualHelper.GetBody(visuals); // 见底部的反射辅助方法
+        if (body == null || !visuals.HasSpineAnimation)
+        {
+            Log.Error("[皮肤管理器] 未能成功获取Body，或当前人物没有Spine动画。");
+            return;
+        }
 
         // 1. 替换骨骼
-        MegaSprite spineController = new MegaSprite(body);
-        spineController.SetSkeletonDataRes(new MegaSkeletonDataResource(loadedSpineData));
+        MegaSprite spineController = VisualHelper.ReplaceSpine(body, loadedSpineData);
         
         // 2. 微调属性
         spineController.GetAnimationState().SetTimeScale(1.4f); // 默认全局加速，如果需要也可配到 SkinData 里
@@ -60,23 +73,11 @@ public static class UniversalScenePatches
         // 3. 构建通用的状态机
         AccessTools.Field(typeof(NCreature), "_spineAnimator").SetValue(__instance, GenerateUniversalAnimator(spineController, skin));
 
-        if (skin.EnableCombatShadow && !body.HasNode("CombatShadow"))
+        if (skin.EnableCombatShadow)
         {
-            PackedScene combatShadow = GD.Load<PackedScene>("res://Scene/Shadow/Shadow_Combat.tscn");
-            if (combatShadow != null)
-            {
-                Node2D node = combatShadow.Instantiate<Node2D>();
-
-                if (__instance.Visuals != null && body != null)
-                {
-                    body.AddChild(node);
-                    body.MoveChild(node, 0);
-                    node.Name = "CombatShadow";
-                    node.Position += skin.CombatShadowOffset;
-                    node.Scale = skin.CombatShadowScale;
-                }
-            }
+            VisualHelper.SetShadow(body, skin.CombatShadowOffset, skin.CombatShadowScale);
         }
+        
         if (charId == "NECROBINDER")
         {
             foreach (Node2D spineNode in body.GetChildren().OfType<Node2D>())
@@ -95,7 +96,6 @@ public static class UniversalScenePatches
             }
         }
     }
-
     
     [HarmonyPatch(typeof(NCreature), nameof(NCreature.SetAnimationTrigger))]
     [HarmonyPrefix]
@@ -106,7 +106,11 @@ public static class UniversalScenePatches
 
         string charId = entity.Player.Character.Id.Entry;
         SkinData skin = SkinApi.GetSelectedSkin(charId);
-        if (skin == null) return true;
+        if (skin == null)
+        {
+            Log.Info("[皮肤管理器] 未读取到皮肤，停止修改动画Trigger。");
+            return true;
+        }
 
         // 查找映射字典，如果有映射则替换 Trigger
         
@@ -132,7 +136,7 @@ public static class UniversalScenePatches
                     }
                 }
                 
-                Log.Info(trigger + "=>" + rolledKey);
+                Log.Info("[皮肤管理器] 权重随机动画结果：" + trigger + "=>" + rolledKey);
                 trigger = rolledKey;
             }
         }
@@ -152,7 +156,11 @@ public static class UniversalScenePatches
     {
         var playersList = AccessTools.Field(typeof(NMerchantRoom), "_players").GetValue(__instance) as List<Player>;
         var visualsList = __instance.PlayerVisuals;
-        if (playersList == null || visualsList == null) return;
+        if (playersList == null || visualsList == null)
+        {        
+            Log.Warn("[皮肤管理器] 未能获取商店内数据，停止替换玩家角色spine模型。");
+            return;
+        }
 
         for (int i = 0; i < playersList.Count; i++)
         {
@@ -162,7 +170,11 @@ public static class UniversalScenePatches
             ulong playerId = playersList[i].NetId; // 🌟 拿到玩家 ID
             SkinData skin = SkinApi.GetSelectedSkin(charId);
             
-            if (skin == null) continue;
+            if (skin == null || string.IsNullOrEmpty(skin.MerchantSpineDataPath))
+            {
+                Log.Info("[皮肤管理器] 未读取到皮肤，或玩家角色spine路径为空，停止商店的spine模型替换。");
+                continue;
+            }
             
             // 🌟 实时加载骨骼数据
             Resource loadedSpineData = null;
@@ -170,16 +182,19 @@ public static class UniversalScenePatches
             {
                 loadedSpineData = GD.Load<Resource>(skin.MerchantSpineDataPath);
             }
-            
-            if (loadedSpineData == null) continue;
+
+            if (loadedSpineData == null)
+            {
+                Log.Error($"[皮肤管理器] 玩家角色spine资源未能成功加载。{skin.ModId} {skin.SkinId}");
+                continue;
+            }
 
             NMerchantCharacter characterVisual = visualsList[i];
             Node2D targetSpineNode = characterVisual.GetChildren().OfType<Node2D>().FirstOrDefault(c => c.GetClass() == "SpineSprite");
 
             if (targetSpineNode != null)
             {
-                MegaSprite spineController = new MegaSprite(targetSpineNode);
-                spineController.SetSkeletonDataRes(new MegaSkeletonDataResource(loadedSpineData));
+                MegaSprite spineController = VisualHelper.ReplaceSpine(targetSpineNode, loadedSpineData);
                 targetSpineNode.Scale = skin.MerchantScale;
                 targetSpineNode.Position += skin.MerchantOffset;
 
@@ -189,8 +204,7 @@ public static class UniversalScenePatches
                 
                 if (skin.MerchantAnimMap.ContainsKey("relaxed_loop"))
                     spineController.GetAnimationState().AddAnimation(skin.MerchantAnimMap["relaxed_loop"], 0f, true); // 默认初始动作
-
-                // ================= 🌟 核心重构：Viewport 渲染法 🌟 =================
+                
                 if (skin.EnableMerchantTouch)
                 {
                     Node parent = targetSpineNode.GetParent();
@@ -272,17 +286,7 @@ public static class UniversalScenePatches
                 
                 if (skin.EnableMerchantShadow)
                 {
-                    PackedScene merchantShadow = GD.Load<PackedScene>("res://Scene/Shadow/Shadow_Merchant.tscn");
-                    if (merchantShadow != null && !characterVisual.HasNode("MerchantShadow"))
-                    {
-                        Node2D node = merchantShadow.Instantiate<Node2D>();
-                        node.Position = skin.MerchantShadowOffset; 
-                        node.Scale = skin.MerchantShadowScale;
-                        node.Name = "MerchantShadow";
-
-                        characterVisual.AddChild(node);
-                        characterVisual.MoveChild(node, 0);
-                    }
+                    VisualHelper.SetShadow(characterVisual, skin.MerchantOffset, skin.MerchantShadowScale);
                 }
             }
         }
@@ -391,17 +395,25 @@ public static class UniversalScenePatches
         if (__instance.Player == null) return;
         string charId = __instance.Player.Character.Id.Entry;
         SkinData skin = SkinApi.GetSelectedSkin(charId);
+
+        if (skin == null || string.IsNullOrEmpty(skin.CombatSpineDataPath))
+        {            
+            Log.Info("[皮肤管理器] 未读取到皮肤，或玩家角色spine路径为空，停止休息处的spine模型替换。");
+            return;
+        }
         
-        if (skin == null) return;
-        
-        // 🌟 实时加载骨骼数据
+        Log.Info("[皮肤管理器] 替换玩家角色休息处的spine模型。");
         Resource loadedSpineData = null;
         if (!string.IsNullOrEmpty(skin.RestSiteSpineDataPath))
         {
             loadedSpineData = GD.Load<Resource>(skin.RestSiteSpineDataPath);
         }
-        
-        if (loadedSpineData == null) return;
+
+        if (loadedSpineData == null)
+        {            
+            Log.Error($"[皮肤管理器] 玩家角色休息处的spine资源未能成功加载。{skin.ModId} {skin.SkinId}");
+            return;
+        }
 
         if (charId != "NECROBINDER")
         {
@@ -409,8 +421,7 @@ public static class UniversalScenePatches
             {
                 if (spineNode.GetClass() == "SpineSprite")
                 {
-                    MegaSprite spineController = new MegaSprite(spineNode);
-                    spineController.SetSkeletonDataRes(new MegaSkeletonDataResource(loadedSpineData));
+                    MegaSprite spineController = VisualHelper.ReplaceSpine(spineNode, loadedSpineData);
                     spineNode.Scale = skin.RestSiteScale;
                     spineNode.Position += skin.RestSiteOffset;
                     spineController.GetAnimationState().AddAnimation(skin.RestSiteAnimName, 0f, true);
@@ -423,8 +434,7 @@ public static class UniversalScenePatches
             {
                 if (spineNode.GetClass() == "SpineSprite" && spineNode.Name == "Necro")
                 {
-                    MegaSprite spineController = new MegaSprite(spineNode);
-                    spineController.SetSkeletonDataRes(new MegaSkeletonDataResource(loadedSpineData));
+                    MegaSprite spineController = VisualHelper.ReplaceSpine(spineNode, loadedSpineData);
                     spineNode.Scale = skin.RestSiteScale;
                     spineNode.Position += skin.RestSiteOffset;
                     spineController.GetAnimationState().AddAnimation(skin.RestSiteAnimName, 0f, true);
@@ -473,11 +483,10 @@ public static class UniversalScenePatches
             {
                 if (child is NCreatureVisuals visuals && NCombatRoom.Instance == null && NMerchantRoom.Instance == null)
                 {
-                    Node2D body = GetBody(visuals);
+                    Node2D body = VisualHelper.GetBody(visuals);
                     if (body != null)
                     {
-                        MegaSprite spineController = new MegaSprite(body);
-                        spineController.SetSkeletonDataRes(new MegaSkeletonDataResource(loadedSpineData));
+                        MegaSprite spineController = VisualHelper.ReplaceSpine(body, loadedSpineData);
                         
                         if (skin.CombatAnimMap.ContainsKey("Dead"))
                             spineController.GetAnimationState().SetAnimation(skin.CombatAnimMap["Dead"], loop: false); // 通用死亡动画名
@@ -486,12 +495,9 @@ public static class UniversalScenePatches
                     }
                 }
             }
-            // ================= 🌟 核心修复：转场后的字幕保障 🌟 =================
-            // 在角色被强行搬家到 GameOver 界面的容器后，
-            // 立即停止上一句（可能还在老容器里放着）的语音和字幕，并强制在这个新环境里重播一句遗言！
+            
             VoicePlayer.Stop();
             VoicePlayer.PlayEvent(playerID, charId, "Die");
-            // =================================================================
         }
     }
 
@@ -501,13 +507,10 @@ public static class UniversalScenePatches
     {
         if (NMerchantRoom.Instance != null)
         {
-            Log.Info("商店中死亡");
             foreach (NMerchantCharacter playerVisual in NMerchantRoom.Instance.PlayerVisuals)
             {
-                Log.Info("检查" + playerVisual.Name);
                 if (playerVisual.HasMeta("UniversalSkinCharId"))
                 {
-                    Log.Info("替换模型");
                     string charId = playerVisual.GetMeta("UniversalSkinCharId").AsString();
                     SkinData skin = SkinApi.GetSelectedSkin(charId);
                     if (skin == null) return true;
@@ -525,24 +528,18 @@ public static class UniversalScenePatches
                     var node = playerVisual.GetNodeOrNull<SubViewport>("SpineViewport");
                     if (node != null)
                     {
-                        Log.Info("替换中");
                         Node2D targetSpineNode = node.GetChildren().OfType<Node2D>().FirstOrDefault(c => c.GetClass() == "SpineSprite");
                         if (targetSpineNode != null)
                         {
-                            Log.Info("正在替换模型...");
-                            MegaSprite spineController = new MegaSprite(targetSpineNode);
-                            spineController.SetSkeletonDataRes(new MegaSkeletonDataResource(loadedSpineData));
+                            MegaSprite spineController = VisualHelper.ReplaceSpine(targetSpineNode, loadedSpineData);
                         }
                     }
                     else
                     {
-                        Log.Info("替换中2");
                         Node2D targetSpineNode = playerVisual.GetChildren().OfType<Node2D>().FirstOrDefault(c => c.GetClass() == "SpineSprite");
                         if (targetSpineNode != null)
                         {
-                            Log.Info("正在替换模型...");
-                            MegaSprite spineController = new MegaSprite(targetSpineNode);
-                            spineController.SetSkeletonDataRes(new MegaSkeletonDataResource(loadedSpineData));
+                            MegaSprite spineController = VisualHelper.ReplaceSpine(targetSpineNode, loadedSpineData);
                         }
                     }
                 }
@@ -555,24 +552,9 @@ public static class UniversalScenePatches
     // ==========================================
     // 🛠️ 辅助方法
     // ==========================================
-    public static Node2D GetBody(NCreatureVisuals visuals)
+    private static CreatureAnimator GenerateUniversalAnimator(MegaSprite controller, SkinData skin)
     {
-        // 兼容0.99.1版本与0.100.0版本的恐惧症更新
-        var traverse = Traverse.Create(visuals);
-        
-        // 0.99.1版本
-        var bodyProp = traverse.Property("Body");
-        if (bodyProp.PropertyExists()) return bodyProp.GetValue<Node2D>();
-        
-        // 0.100.0版本
-        var bodyField = traverse.Field("_body");
-        if (bodyField.FieldExists()) return bodyField.GetValue<Node2D>();
-        
-        return null; 
-    }
-
-    public static CreatureAnimator GenerateUniversalAnimator(MegaSprite controller, SkinData skin)
-    {
+        Log.Info("[皮肤管理器] 加载玩家角色动画");
         // 提取所有映射到的值，构建一个极其包容的状态机
         // 这样只要内容 Mod 在 CombatAnimMap 填了映射，状态机里就一定有这个状态
         // Idle状态作为其他状态的返回状态，需要先声明
@@ -597,8 +579,8 @@ public static class UniversalScenePatches
         foreach (var mappedAnim in skin.CombatAnimMap.Keys.Distinct())
         {
             if (mappedAnim == "Idle" || mappedAnim == "Dead") continue;
-            Log.Info("游戏内动画trigger : " + mappedAnim);
-            Log.Info("Spine动画名称 : " + skin.CombatAnimMap[mappedAnim]);
+            Log.Info("[皮肤管理器] 游戏内动画trigger : " + mappedAnim);
+            Log.Info("[皮肤管理器] spine动画名称 : " + skin.CombatAnimMap[mappedAnim]);
             AnimState newState = new AnimState(skin.CombatAnimMap[mappedAnim]);
             newState.NextState = idleState; // 播完回退到 Idle
             animator.AddAnyState(mappedAnim, newState);
@@ -609,14 +591,15 @@ public static class UniversalScenePatches
             Dictionary<string, int> mappedAnim = skin.CombatRandomAnimMap[key];
             foreach (var mappedAnim2 in mappedAnim.Keys)
             {
-                Log.Info("游戏内动画trigger : " + key);
-                Log.Info("Spine动画名称 : " + mappedAnim2);
+                Log.Info("[皮肤管理器] 游戏内动画trigger : " + key);
+                Log.Info("[皮肤管理器] spine动画名称 : " + mappedAnim2);
                 AnimState newState = new AnimState(mappedAnim2);
                 newState.NextState = idleState; // 播完回退到 Idle
                 animator.AddAnyState(mappedAnim2, newState);
             }
         }
 
+        Log.Info("[皮肤管理器] 玩家角色动画加载完成");
         return animator;
     }
 }

@@ -14,6 +14,8 @@ using MegaCrit.Sts2.Core.Nodes.Combat;
 using MegaCrit.Sts2.Core.Nodes.RestSite;
 using MegaCrit.Sts2.Core.Nodes.Rooms;
 using MegaCrit.Sts2.Core.Nodes.Vfx;
+using SkinManagerAndSkinPanelMod.Scripts.Data;
+using SkinManagerAndSkinPanelMod.Scripts.Helper;
 
 namespace SkinManagerAndSkinPanelMod;
 
@@ -26,11 +28,21 @@ public static class SovereignBladeVfx
     {
         if (__instance.Card?.Owner?.Character?.Id.Entry != "REGENT") return;
         
-        Log.Info("替换君王之剑");
-        
         SkinData skin = SkinApi.GetSelectedSkin("REGENT");
+
         
-        if (skin == null) return;
+        if (skin == null)
+        {
+            LogHelper.LogNoneSkin();
+            return;
+        }
+
+        LogHelper.LogReplace("君王之剑", skin);
+        
+        if (string.IsNullOrEmpty(skin.BladeScenePath))
+        {
+            LogHelper.LogEmptyPath("君王之剑", skin);
+        }
         
         // 🌟 实时加载骨骼数据
         PackedScene loadedSceneData = null;
@@ -38,14 +50,21 @@ public static class SovereignBladeVfx
         {
             loadedSceneData = GD.Load<PackedScene>(skin.BladeScenePath);
         }
-        
-        if (loadedSceneData == null) return;
+
+        if (loadedSceneData == null)
+        {
+            LogHelper.ErrorLoad("君王之剑",  skin);
+            return;
+        }
         
         
         // 2. 获取根部 Spine 节点
         var spineNode = __instance.GetNode<Node2D>("SpineSword");
-        
-        if (spineNode.HasNode("CustomSwordVisuals")) return;
+
+        if (spineNode.HasNode("CustomSwordVisuals"))
+        {
+            return;
+        }
 
         if (spineNode is CanvasItem canvasSpine)
         {
@@ -97,25 +116,45 @@ public static class SovereignBladeVfx
         
         string charId = entity.PetOwner.Character.Id.Entry;
         SkinData skin = SkinApi.GetSelectedSkin(charId);
+
+        if (skin == null || string.IsNullOrEmpty(skin.OstyCombatSpineDataPath))
+        {
+            LogHelper.LogNoneSkin();
+            return;
+        }
+
+        LogHelper.LogReplace("奥斯提spine模型", skin);
         
-        if (skin == null || string.IsNullOrEmpty(skin.OstyCombatSpineDataPath)) return; 
+        if (string.IsNullOrEmpty(skin.OstyCombatSpineDataPath))
+        {
+            LogHelper.LogEmptyPath("奥斯提spine模型", skin);
+            return;
+        }
         
-        // 🌟 实时加载骨骼数据
         Resource loadedSpineData = null;
         if (!string.IsNullOrEmpty(skin.OstyCombatSpineDataPath))
         {
             loadedSpineData = GD.Load<Resource>(skin.OstyCombatSpineDataPath);
         }
-        
-        if (loadedSpineData == null) return;
+
+        if (loadedSpineData == null)
+        {
+            LogHelper.ErrorLoad("奥斯提spine模型",  skin);
+            return;
+        }
 
         var visuals = __instance.Visuals;
-        Node2D body = UniversalScenePatches.GetBody(visuals); // 见底部的反射辅助方法
-        if (body == null || !visuals.HasSpineAnimation) return;
+        Node2D body = VisualHelper.GetBody(visuals); // 见底部的反射辅助方法
+        if (body == null || !visuals.HasSpineAnimation)
+        {
+            Log.Error("[皮肤管理器] 未能成功获取Body，或当前人物没有Spine动画。");
+            return;
+        }
+        
 
         // 1. 替换骨骼
-        MegaSprite spineController = new MegaSprite(body);
-        spineController.SetSkeletonDataRes(new MegaSkeletonDataResource(loadedSpineData));
+        
+        MegaSprite spineController = VisualHelper.ReplaceSpine(body, loadedSpineData);
         
         // 2. 微调属性
         spineController.GetAnimationState().SetTimeScale(1.4f);
@@ -127,19 +166,11 @@ public static class SovereignBladeVfx
 
         if (skin.EnableCombatShadow)
         {
-            PackedScene combatShadow = GD.Load<PackedScene>("res://Scene/Shadow/Shadow_Combat.tscn");
-            if (combatShadow != null)
-            {
-                Node2D node = combatShadow.Instantiate<Node2D>();
-
-                if (__instance.Visuals != null && body != null)
-                {
-                    body.AddChild(node);
-                    body.MoveChild(node, 0);
-                    node.Position += skin.OstyCombatCombatShadowOffset;
-                    node.Scale = skin.OstyCombatShadowScale;
-                }
-            }
+            VisualHelper.SetShadow(
+                body,
+                skin.OstyCombatCombatShadowOffset,
+                skin.OstyCombatShadowScale
+                );
         }
         
         foreach (Node2D spineNode in body.GetChildren().OfType<Node2D>())
@@ -150,12 +181,6 @@ public static class SovereignBladeVfx
                 spineNode.SelfModulate = new Color(1f, 1f, 1f, 0f);
             }
         }
-        /*
-        // 4. 挂载额外场景 (例如 Blade)
-        if (skin.BladeScene != null)
-        {
-            
-        }*/
     }
     
     [HarmonyPatch(typeof(NRestSiteCharacter), nameof(NRestSiteCharacter._Ready))]
@@ -163,21 +188,37 @@ public static class SovereignBladeVfx
     public static void OnRestSiteReady(NRestSiteCharacter __instance)
     {
         if (__instance.Player == null) return;
+        
         string charId = __instance.Player.Character.Id.Entry;
         if (charId != "NECROBINDER") return;
+        
         SkinData skin = SkinApi.GetSelectedSkin(charId);
+
+        if (skin == null)
+        {
+            LogHelper.LogNoneSkin();
+            return;
+        }
+
+        if (string.IsNullOrEmpty(skin.OstyRestSiteSpineDataPath))
+        {
+            LogHelper.LogEmptyPath("奥斯提spine资源", skin);
+        }
         
-        if (skin == null || string.IsNullOrEmpty(skin.OstyRestSiteSpineDataPath) ) return;
-        
-        // 🌟 实时加载骨骼数据
+        LogHelper.LogReplace("奥斯提spine资源", skin);
         Resource loadedSpineData = null;
         if (!string.IsNullOrEmpty(skin.OstyRestSiteSpineDataPath))
         {
             loadedSpineData = GD.Load<Resource>(skin.OstyRestSiteSpineDataPath);
         }
-        
-        if (loadedSpineData == null) return;
 
+        if (loadedSpineData == null)
+        {
+            LogHelper.ErrorLoad("奥斯提spine资源", skin);
+            return;
+        }
+
+        Log.Info($"[皮肤管理器] {skin.SkinId} 正在尝试寻找并替换奥斯提spine模型。");
         foreach (Node2D spineNode in __instance.GetChildren().OfType<Node2D>())
         {
             if (spineNode.GetClass() == "SpineSprite"  && spineNode.Name == "Osty")
@@ -199,38 +240,9 @@ public static class SovereignBladeVfx
         }
     }
     
-    /*
-    [HarmonyPatch(typeof(OstyCmd), nameof(OstyCmd.Summon))]
-    [HarmonyPostfix]
-    public static void OstyFlameDisable(PlayerChoiceContext choiceContext, Player summoner, decimal amount, AbstractModel? source)
-    {
-        if (summoner == null) return;
-        string charId = summoner.Character.Id.Entry;
-        if (charId != "NECROBINDER") return;
-        SkinData skin = SkinApi.GetSelectedSkin(charId);
-        
-        if (skin == null || string.IsNullOrEmpty(skin.OstyRestSiteSpineDataPath) ) return;
-        Log.Load("Flame Disable");
-        CombatState combatState = summoner.Creature.CombatState;
-        Creature osty = combatState.Allies.FirstOrDefault((Creature c) => c.Monster is Osty && c.PetOwner == summoner);
-        NCreature nCreature = NCombatRoom.Instance?.GetCreatureNode(osty);
-        foreach (Node2D spineNode in UniversalScenePatches.GetBody(nCreature.Visuals).GetChildren().OfType<Node2D>())
-        {
-            if (spineNode.GetClass() == "SpineSprite"  && spineNode.Name == "Osty")
-            {
-                foreach (Node2D spineNode2 in spineNode.GetChildren().OfType<Node2D>())
-                {
-                    if (spineNode2.Name == "Flame")
-                    {
-                        spineNode2.Visible = false;
-                    }
-                }
-            }
-        }
-    }*/
-    
     private static CreatureAnimator GenerateOstyUniversalAnimator(MegaSprite controller, SkinData skin)
     {
+        Log.Info($"[皮肤管理器] {skin.SkinId} 加载奥斯提动画。");
         AnimState idleState = null;
         AnimState deadState = null;
         AnimState deadLoopState = null;
@@ -256,8 +268,8 @@ public static class SovereignBladeVfx
         foreach (var mappedAnim in skin.OstyCombatAnimMap.Keys.Distinct())
         {
             if (mappedAnim == "Idle" || mappedAnim == "Dead" || mappedAnim == "dead_loop" ) continue;
-            Log.Info("Osty游戏内动画trigger : " + mappedAnim);
-            Log.Info("Osty Spine动画名称 : " + skin.OstyCombatAnimMap[mappedAnim]);
+            Log.Info($"[皮肤管理器] {skin.SkinId} 奥斯提游戏内动画trigger : " + mappedAnim);
+            Log.Info($"[皮肤管理器] {skin.SkinId} 奥斯提Spine动画名称 : " + skin.OstyCombatAnimMap[mappedAnim]);
             AnimState newState = new AnimState(skin.OstyCombatAnimMap[mappedAnim]);
             newState.NextState = idleState; // 播完回退到 Idle
             animator.AddAnyState(mappedAnim, newState);
@@ -268,72 +280,15 @@ public static class SovereignBladeVfx
             Dictionary<string, int> mappedAnim = skin.OstyCombatRandomAnimMap[key];
             foreach (var mappedAnim2 in mappedAnim.Keys)
             {
-                Log.Info("Osty游戏内动画trigger : " + key);
-                Log.Info("Osty Spine动画名称 : " + mappedAnim2);
+                Log.Info($"[皮肤管理器] {skin.SkinId} 奥斯提游戏内动画trigger : " + key);
+                Log.Info($"[皮肤管理器] {skin.SkinId} 奥斯提Spine动画名称 : " + mappedAnim2);
                 AnimState newState = new AnimState(mappedAnim2);
                 newState.NextState = idleState; // 播完回退到 Idle
                 animator.AddAnyState(mappedAnim2, newState);
             }
         }
 
+        Log.Info($"[皮肤管理器] {skin.SkinId} 奥斯提动画加载完成");
         return animator;
     }
 }
-
-
-
-/*
-[HarmonyPatch(typeof(NSovereignBladeVfx), nameof(NSovereignBladeVfx.Forge))]
-public static class Patch_NSovereignBladeVfx_Forge
-{
-    public static void Postfix(NSovereignBladeVfx __instance, float bladeDamage, bool showFlames)
-    {
-        if (__instance.Card?.Owner?.Character?.Id.Entry == "REGENT")
-        {
-            var spineNode = __instance.GetNode<Node2D>("SpineSword");
-            
-            if (spineNode is CanvasItem canvasSpine)
-            {
-                canvasSpine.SelfModulate = new Color(1f, 1f, 1f, 0f);
-            }
-
-            var glowT = AccessTools.Field(typeof(NSovereignBladeVfx), "_glowTween").GetValue(__instance) as Tween;
-            if (glowT != null)
-            {
-                glowT.Kill();
-            }
-            
-            // 3. 隐藏所有原版用于拼接武器的贴图节点
-            // 如果不隐藏，充能时原版的剑柄和发光特效会突然冒出来
-            string[] vanillaVisualNodes = 
-            {
-                "SpineSword/SwordBone/ScaleContainer/SteppedFireMix",
-                "SpineSword/SwordBone/ScaleContainer/YellowDots",
-                "SpineSword/SwordBone/ScaleContainer/middle spike",
-                "SpineSword/SwordBone/ScaleContainer/Blade",
-                "SpineSword/SwordBone/ScaleContainer/Blade2",
-                "SpineSword/SwordBone/ScaleContainer/Hilt",
-                "SpineSword/SwordBone/ScaleContainer/Hilt2",
-                "SpineSword/SwordBone/ScaleContainer/Detail",
-                "SpineSword/SwordBone/ScaleContainer/BladeGlow",
-                "SpineSword/SwordBone/ScaleContainer/SpikeCircle",
-                "SpineSword/SwordBone/ScaleContainer/Spikes",
-                "SpineSword/SwordBone/ScaleContainer/Spikes2",
-                "SpineSword/SwordBone/ScaleContainer/BladeOutline2",
-                "SpineSword/SwordBone/ScaleContainer/BladeOutline"
-            };
-
-            foreach (string nodePath in vanillaVisualNodes)
-            {
-                var node = __instance.GetNodeOrNull<CanvasItem>(nodePath);
-                if (node != null)
-                {
-                    // 使用 SelfModulate 免疫原版 Tween 动画对透明度的覆盖
-                    node.SelfModulate = new Color(1f, 1f, 1f, 0f);
-                }
-            }
-            
-        }
-    }
-}
-*/

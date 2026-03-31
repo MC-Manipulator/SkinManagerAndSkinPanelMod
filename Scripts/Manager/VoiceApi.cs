@@ -8,13 +8,12 @@ namespace SkinManagerAndSkinPanelMod;
 // 权重语音条目
 public class VoiceLine
 {
-    public string AudioPath; // "res://audio/voice/attack_1.ogg"
-    public int Weight = 1;   // 权重
-    public string Subtitle;    // ★新增：语音对应的台词字幕
-    public float Duration = 3f; // ★新增：字幕在屏幕上停留的时间（秒）
+    public string AudioFileName;
+    public int Weight = 1;
+    public string Subtitle;
+    public float Duration = 3f;
 }
 
-// 语音事件组 (例如 "EnterCombat", "PlayCard_Strike" 等)
 public class VoiceEvent
 {
     public List<VoiceLine> Lines = new List<VoiceLine>();
@@ -26,18 +25,15 @@ public class VoiceEvent
     // 工具方法：判断是否可以播放
     public bool CanPlay()
     {
-        //Log.Info("检查是否可播放");
-        // 1. 检查概率
         if (Probability < 1.0f && GD.Randf() > Probability) return false;
 
-        // 2. 检查冷却
         if (Cooldown > 0)
         {
             ulong currentTime = Time.GetTicksMsec();
             if ((currentTime - _lastPlayTimeMsec) < (ulong)(Cooldown * 1000)) return false;
             _lastPlayTimeMsec = currentTime; // 记录本次播放时间
         }
-        //Log.Info("可以播放");
+        
         return true;
     }
 

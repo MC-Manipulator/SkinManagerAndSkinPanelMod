@@ -86,6 +86,10 @@
         <Content Include="SkinManagerAndSkinPanelMod.json" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Scripts\Network\" />
+    </ItemGroup>
+
     <Target Name="CopyToModsFolderOnBuild" AfterTargets="PostBuildEvent">
         <Message Text="Copying .dll to mods folder." Importance="high"/>
         <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(Sts2Path)/mods/"/>

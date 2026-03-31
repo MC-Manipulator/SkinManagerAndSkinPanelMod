@@ -2,16 +2,36 @@
 using Godot;
 using System.Linq;
 using MegaCrit.Sts2.Core.Combat;
+using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Entities.Cards;
+using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Models;
+using SkinManagerAndSkinPanelMod.Scripts.Data;
 
 namespace SkinManagerAndSkinPanelMod;
 
 [HarmonyPatch]
 public static class VoicePatches
 {
+    [HarmonyPatch(typeof(SfxCmd), nameof(SfxCmd.PlayDeath), new[] { typeof(Player) })]
+    [HarmonyPostfix]
+    public static bool Prefix(Player player)
+    {
+        if (player == null || player.Character == null) return true;
+            
+        string charId = player.Character.Id.Entry;
+        SkinData skin = SkinApi.GetSelectedSkin(charId);
+            
+        if (player.Character.Id.Entry == "REGENT" && skin != null)
+        {
+            return false; 
+        }
+        
+        return true; 
+    }
+    
     [HarmonyPatch(typeof(CombatManager), nameof(CombatManager.StartCombatInternal))]
     [HarmonyPostfix]
     public static void OnCombatStarted(CombatManager __instance)

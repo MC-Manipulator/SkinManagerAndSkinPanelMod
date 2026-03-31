@@ -1,3 +1,7 @@
+OptionButton
+HBoxContainer
+CheckBox
+Label
 SpineSprite
 TextureRect
 Node2D
