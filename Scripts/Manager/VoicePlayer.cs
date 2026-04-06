@@ -209,7 +209,7 @@ public static class VoicePlayer
             return;
         }
         
-        AudioStream stream = GD.Load<AudioStream>(path);
+        AudioStream stream = ResourceLoader.Load<AudioStream>(path);
 
         // 确保播放器节点存在
         if (_playerNode == null || !GodotObject.IsInstanceValid(_playerNode))

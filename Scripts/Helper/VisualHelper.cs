@@ -11,7 +11,7 @@ public static class VisualHelper
     {
         if (body.HasNode("Shadow")) return;
         
-        PackedScene shadow = GD.Load<PackedScene>("res://Scene/Shadow/Shadow_Combat.tscn");
+        PackedScene shadow = ResourceLoader.Load<PackedScene>("res://Scene/Shadow/Shadow_Combat.tscn");
         if (shadow != null)
         {
             Node2D node = shadow.Instantiate<Node2D>();

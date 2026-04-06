@@ -45,7 +45,7 @@ public static class UniversalScenePatches
         Resource loadedSpineData = null;
         if (!string.IsNullOrEmpty(skin.CombatSpineDataPath))
         {
-            loadedSpineData = GD.Load<Resource>(skin.CombatSpineDataPath);
+            loadedSpineData = ResourceLoader.Load<Resource>(skin.CombatSpineDataPath);
         }
 
         if (loadedSpineData == null)
@@ -180,7 +180,7 @@ public static class UniversalScenePatches
             Resource loadedSpineData = null;
             if (!string.IsNullOrEmpty(skin.MerchantSpineDataPath))
             {
-                loadedSpineData = GD.Load<Resource>(skin.MerchantSpineDataPath);
+                loadedSpineData = ResourceLoader.Load<Resource>(skin.MerchantSpineDataPath);
             }
 
             if (loadedSpineData == null)
@@ -296,10 +296,9 @@ public static class UniversalScenePatches
 
     private static Material GetGoldOutlineMaterial()
     {
-        return GD.Load<ShaderMaterial>("res://Materials/GoldOutlineMaterial.tres");
+        return ResourceLoader.Load<ShaderMaterial>("res://Materials/GoldOutlineMaterial.tres");
     }
-
-// 参数改接收 TextureRect
+    
     private static void OnMerchantCharacterHovered(TextureRect displayRect)
     {
         if (displayRect != null)
@@ -323,7 +322,6 @@ public static class UniversalScenePatches
     {
         if (displayRect != null)
         {
-            // 移开鼠标，撤下着色器
             displayRect.Material = _defaultMaterial;
         }
     }
@@ -406,7 +404,7 @@ public static class UniversalScenePatches
         Resource loadedSpineData = null;
         if (!string.IsNullOrEmpty(skin.RestSiteSpineDataPath))
         {
-            loadedSpineData = GD.Load<Resource>(skin.RestSiteSpineDataPath);
+            loadedSpineData = ResourceLoader.Load<Resource>(skin.RestSiteSpineDataPath);
         }
 
         if (loadedSpineData == null)
@@ -462,42 +460,51 @@ public static class UniversalScenePatches
         var creatureContainer = AccessTools.Field(typeof(NGameOverScreen), "_creatureContainer").GetValue(__instance) as Control;
         if (runState == null || creatureContainer == null) return;
 
-        foreach (Player player in runState.Players)
+        // 获取所有玩家，并确保数量和容器里的子节点数量一致（避免意外越界）
+        var players = runState.Players.ToList();
+        var visualNodes = creatureContainer.GetChildren();
+
+        // 🌟 核心修复：不要嵌套循环！使用相同的索引 (i) 一对一精准绑定！
+        for (int i = 0; i < players.Count; i++)
         {
+            if (i >= visualNodes.Count) break;
+
+            Player player = players[i];
+            Node visualChild = visualNodes[i]; // 这具尸体，就是这个 player 的！
+
             string charId = player.Character.Id.Entry;
-            ulong playerID = player.NetId;
+            ulong playerId = player.NetId;
             SkinData skin = SkinApi.GetSelectedSkin(charId);
             
             if (skin == null) continue;
             
-            // 🌟 实时加载骨骼数据
+            // 🌟 实时加载当前玩家对应的骨骼数据
             Resource loadedSpineData = null;
             if (!string.IsNullOrEmpty(skin.CombatSpineDataPath))
             {
                 loadedSpineData = GD.Load<Resource>(skin.CombatSpineDataPath);
             }
-            
             if (loadedSpineData == null) continue;
 
-            foreach (Node child in creatureContainer.GetChildren())
+            // 🌟 场景 1：如果这是从事件房/休息处凭空生成的 NCreatureVisuals
+            if (visualChild is NCreatureVisuals visuals && NCombatRoom.Instance == null && NMerchantRoom.Instance == null)
             {
-                if (child is NCreatureVisuals visuals && NCombatRoom.Instance == null && NMerchantRoom.Instance == null)
+                Node2D body = VisualHelper.GetBody(visuals);
+                if (body != null)
                 {
-                    Node2D body = VisualHelper.GetBody(visuals);
-                    if (body != null)
-                    {
-                        MegaSprite spineController = VisualHelper.ReplaceSpine(body, loadedSpineData);
-                        
-                        if (skin.CombatAnimMap.ContainsKey("Dead"))
-                            spineController.GetAnimationState().SetAnimation(skin.CombatAnimMap["Dead"], loop: false); // 通用死亡动画名
-                        
-                        body.Scale = skin.GameOverScale;
-                    }
+                    // 只替换属于他的这具尸体！
+                    MegaSprite spineController = VisualHelper.ReplaceSpine(body, loadedSpineData);
+                    
+                    if (skin.CombatAnimMap.ContainsKey("Dead"))
+                        spineController.GetAnimationState().SetAnimation(skin.CombatAnimMap["Dead"], loop: false); 
+                    
+                    body.Scale = skin.GameOverScale;
                 }
             }
             
+            // 确保播放的是正确的角色的死亡语音
             VoicePlayer.Stop();
-            VoicePlayer.PlayEvent(playerID, charId, "Die");
+            VoicePlayer.PlayEvent(playerId, charId, "Die");
         }
     }
 
@@ -513,25 +520,23 @@ public static class UniversalScenePatches
                 {
                     string charId = playerVisual.GetMeta("UniversalSkinCharId").AsString();
                     SkinData skin = SkinApi.GetSelectedSkin(charId);
-                    if (skin == null) return true;
+                    if (skin == null) continue; // 如果没皮肤，检查下一个，千万别直接 return true!
 
-                    // 🌟 实时加载骨骼数据
                     Resource loadedSpineData = null;
                     if (!string.IsNullOrEmpty(skin.CombatSpineDataPath))
                     {
                         loadedSpineData = GD.Load<Resource>(skin.CombatSpineDataPath);
                     }
-                    
                     if (loadedSpineData == null) continue;
 
-                    
                     var node = playerVisual.GetNodeOrNull<SubViewport>("SpineViewport");
                     if (node != null)
                     {
                         Node2D targetSpineNode = node.GetChildren().OfType<Node2D>().FirstOrDefault(c => c.GetClass() == "SpineSprite");
                         if (targetSpineNode != null)
                         {
-                            MegaSprite spineController = VisualHelper.ReplaceSpine(targetSpineNode, loadedSpineData);
+                            MegaSprite spineController = new MegaSprite(targetSpineNode);
+                            spineController.SetSkeletonDataRes(new MegaSkeletonDataResource(loadedSpineData));
                         }
                     }
                     else
@@ -539,13 +544,13 @@ public static class UniversalScenePatches
                         Node2D targetSpineNode = playerVisual.GetChildren().OfType<Node2D>().FirstOrDefault(c => c.GetClass() == "SpineSprite");
                         if (targetSpineNode != null)
                         {
-                            MegaSprite spineController = VisualHelper.ReplaceSpine(targetSpineNode, loadedSpineData);
+                            MegaSprite spineController = new MegaSprite(targetSpineNode);
+                            spineController.SetSkeletonDataRes(new MegaSkeletonDataResource(loadedSpineData));
                         }
                     }
                 }
             }
         }
-        
         return true;
     }
     
@@ -555,10 +560,6 @@ public static class UniversalScenePatches
     private static CreatureAnimator GenerateUniversalAnimator(MegaSprite controller, SkinData skin)
     {
         Log.Info("[皮肤管理器] 加载玩家角色动画");
-        // 提取所有映射到的值，构建一个极其包容的状态机
-        // 这样只要内容 Mod 在 CombatAnimMap 填了映射，状态机里就一定有这个状态
-        // Idle状态作为其他状态的返回状态，需要先声明
-        // Dead状态是唯一不需要返回Idle的状态，也需要单独声明
 
         AnimState idleState = null;
         AnimState deadState = null;

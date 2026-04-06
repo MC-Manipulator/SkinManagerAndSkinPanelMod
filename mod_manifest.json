@@ -1,7 +1,7 @@
 {
   "pck_name": "SkinManagerAndSkinPanelMod",
-  "name": "SkinManagerAndSkinPanelMod",
-  "author": "Name",
-  "description": "Slay the Spire 2 mod created from a template for use with BaseLib",
-  "version": "v0.0"
+  "name": "皮肤管理器与皮肤面板模组",
+  "author": "bilibili: 傀儡师_lite",
+  "description": "该Mod提供统一替换、管理杀戮尖塔2原版角色spine模型的接口，同时在选择角色界面提供一个切换皮肤的面板。",
+  "version": "V1"
 }

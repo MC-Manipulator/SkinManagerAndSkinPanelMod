@@ -48,7 +48,7 @@ public static class SovereignBladeVfx
         PackedScene loadedSceneData = null;
         if (!string.IsNullOrEmpty(skin.BladeScenePath))
         {
-            loadedSceneData = GD.Load<PackedScene>(skin.BladeScenePath);
+            loadedSceneData = ResourceLoader.Load<PackedScene>(skin.BladeScenePath);
         }
 
         if (loadedSceneData == null)
@@ -134,7 +134,7 @@ public static class SovereignBladeVfx
         Resource loadedSpineData = null;
         if (!string.IsNullOrEmpty(skin.OstyCombatSpineDataPath))
         {
-            loadedSpineData = GD.Load<Resource>(skin.OstyCombatSpineDataPath);
+            loadedSpineData = ResourceLoader.Load<Resource>(skin.OstyCombatSpineDataPath);
         }
 
         if (loadedSpineData == null)
@@ -209,7 +209,7 @@ public static class SovereignBladeVfx
         Resource loadedSpineData = null;
         if (!string.IsNullOrEmpty(skin.OstyRestSiteSpineDataPath))
         {
-            loadedSpineData = GD.Load<Resource>(skin.OstyRestSiteSpineDataPath);
+            loadedSpineData = ResourceLoader.Load<Resource>(skin.OstyRestSiteSpineDataPath);
         }
 
         if (loadedSpineData == null)

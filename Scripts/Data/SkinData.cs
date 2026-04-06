@@ -65,20 +65,16 @@ public class SkinData
     
     public Dictionary<string, string> CustomImpactVfxMap = new Dictionary<string, string>();
     
-    // (可选) 默认的专属打击特效。如果某张攻击牌不在字典里，但它是该角色打出的，就播这个。
     public string DefaultImpactVfxPath = ""; 
     
-    // 特效缩放比例，如果是巨剑砸击，可能需要放大
     public Vector2 ImpactVfxScale = new Vector2(1f, 1f);
     public Vector2 ImpactVfxOffset = new Vector2(0f, 0f);
 
     public string IconScenePath  = "";
+    public string SelectIconPath = "";
     
-    // !!! NEW: Optionally declare supported languages for this skin !!!
-    // If empty or null, assume all languages in UniversalSettingsManager.AvailableLanguages are supported.
-    public List<string> SupportedLanguages = null; // e.g., new List<string> { "zh", "en" }
 
-    // VoiceEvents remains the same, but VoiceLine structure within it is changed.
     public Dictionary<string, VoiceEvent> VoiceEvents = new Dictionary<string, VoiceEvent>();
+    public List<string> SupportedLanguages = null;
 
 }

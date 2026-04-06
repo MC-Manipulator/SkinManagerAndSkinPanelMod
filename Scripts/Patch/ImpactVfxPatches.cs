@@ -43,7 +43,7 @@ public static class ImpactVfxPatches
 
         if (string.IsNullOrEmpty(vfxPathToPlay)) return;
 
-        PackedScene vfxScene = GD.Load<PackedScene>(vfxPathToPlay);
+        PackedScene vfxScene = ResourceLoader.Load<PackedScene>(vfxPathToPlay);
         if (vfxScene != null)
         {
             Node2D customVfx = vfxScene.Instantiate<Node2D>();

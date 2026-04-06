@@ -113,22 +113,30 @@ public static class UniversalSettingsManager
         }
     }
     
-    // !!! NEW: Skin Language Management !!!
     /// <summary>
-    /// Gets the selected language code for a specific character and skin.
+    /// 根据角色和皮肤ID获取语音的语言设置.
     /// </summary>
-    /// <param name="characterId">Character ID.</param>
-    /// <param name="skinId">Skin ID.</param>
-    /// <returns>Language code (e.g., "zh", "en"), defaults to "zh".</returns>
     public static string GetSkinLanguage(string characterId, string skinId)
     {
         string key = $"{characterId}/{skinId}";
-        // Default to "zh" if not found. You might want a more robust default based on game settings.
-        if (!_skinSpecificLanguage.TryGetValue(key, out string lang))
+        
+        // 如果找到了玩家保存过的语言，直接返回
+        if (_skinSpecificLanguage.TryGetValue(key, out string lang))
         {
-            return "zh"; 
+            return lang; 
         }
-        return lang;
+
+        // ================= 🌟 核心修复 🌟 =================
+        // 如果没存过，去查一下这个皮肤到底支持什么语言，取它支持的第一个作为默认！
+        var skin = SkinManagerAndSkinPanelMod.SkinApi.GetSelectedSkin(characterId);
+        if (skin != null && skin.SkinId == skinId && skin.SupportedLanguages != null && skin.SupportedLanguages.Count > 0)
+        {
+            return skin.SupportedLanguages[0]; // 返回皮肤支持的第一个语言（比如 "ja"）
+        }
+
+        // 如果皮肤没写 SupportedLanguages，再 fallback 回 "zh"
+        return "zh"; 
+        // ==================================================
     }
 
     /// <summary>

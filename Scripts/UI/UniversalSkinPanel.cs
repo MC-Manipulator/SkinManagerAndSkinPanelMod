@@ -124,12 +124,12 @@ public partial class UniversalSkinPanel : Control
         PopulateLanguageSelectorForSkin(currentSkin);
         // Set the correct language based on saved settings
         string currentLangCode = UniversalSettingsManager.GetSkinLanguage(characterId, currentSkin.SkinId);
-        SetLanguageSelectorSelection(currentLangCode);
+        SetLanguageSelectorSelection(currentLangCode, characterId, currentSkin.SkinId);
         
         Resource loadedSpineData = null;
         if (!string.IsNullOrEmpty(currentSkin.CombatSpineDataPath))
         {
-            loadedSpineData = GD.Load<Resource>(currentSkin.CombatSpineDataPath);
+            loadedSpineData = ResourceLoader.Load<Resource>(currentSkin.CombatSpineDataPath);
         }
         if (loadedSpineData != null)
         {
@@ -154,11 +154,12 @@ public partial class UniversalSkinPanel : Control
         if (updateBackground)
         {
             UniversalUIPatches.UpdateBackgroundToCurrentSkin(characterId);
+            UniversalUIPatches.UpdateSelectButtonIconToCurrentSkin(characterId);
         }
     }
     
     
-        // !!! NEW: Helper to populate the language dropdown based on skin support !!!
+    // !!! NEW: Helper to populate the language dropdown based on skin support !!!
     private void PopulateLanguageSelectorForSkin(SkinData skin)
     {
         _languageSelector.Clear(); // Clear previous entries
@@ -198,7 +199,7 @@ public partial class UniversalSkinPanel : Control
     }
 
     // !!! NEW: Helper to set the correct language in the dropdown !!!
-    private void SetLanguageSelectorSelection(string langCode)
+    private void SetLanguageSelectorSelection(string langCode, string characterId, string skinId)
     {
         for (int i = 0; i < _languageSelector.ItemCount; i++)
         {
@@ -209,10 +210,18 @@ public partial class UniversalSkinPanel : Control
                 return;
             }
         }
-        // Fallback: If the saved language isn't found (e.g., it was removed), select the first item.
+        
+        // ================= 🌟 核心修复 🌟 =================
+        // 如果存档里存的语言（或者 fallback 的语言）不在这个皮肤支持的列表里
+        // 我们强制选中下拉框里的第 0 项（这个皮肤实际支持的第一个语言）
         if (_languageSelector.ItemCount > 0)
         {
             _languageSelector.Select(0); 
+            
+            // 并且！必须主动通知 SettingsManager 保存这个真正的语言！
+            string actualLangCode = _languageSelector.GetItemMetadata(0).ToString();
+            UniversalSettingsManager.SetSkinLanguage(characterId, skinId, actualLangCode);
         }
+        // ==================================================
     }
 }

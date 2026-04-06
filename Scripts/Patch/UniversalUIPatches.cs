@@ -42,7 +42,7 @@ public static class UniversalUIPatches
             }
             catch (Exception e)
             {
-                Log.Error("[皮肤管理器] 初始化过程中出现未知错误。");
+                Log.Error($"[皮肤管理器] 初始化过程中出现未知错误:{e}");
             }
             
             Log.Info("[皮肤管理器] 初始化完成");
@@ -54,6 +54,37 @@ public static class UniversalUIPatches
     [HarmonyPrefix]
     public static bool InjectPanel(NCharacterSelectScreen __instance)
     {
+        // 🌟 1. 记录当前界面的实例，因为马上要用到它来获取 _charButtonContainer
+        CurrentScreenInstance = __instance;
+
+        // 🌟 2. 获取包含所有选人按钮的容器
+        var buttonContainer = __instance.GetNodeOrNull<Control>("CharSelectButtons/ButtonContainer");
+        if (buttonContainer != null)
+        {
+            // 遍历所有的选人按钮
+            foreach (Node child in buttonContainer.GetChildren())
+            {
+                if (child is NCharacterSelectButton button && button.Character != null)
+                {
+                    string charId = button.Character.Id.Entry;
+                    
+                    // 如果这个角色有皮肤，就强制刷一次它的头像
+                    if (SkinApi.HasSkins(charId))
+                    {
+                        // 借用我们之前写好的更新单个按钮头像的公共方法
+                        UpdateSelectButtonIconToCurrentSkin(charId);
+                    }
+                }
+            }
+        }
+        else
+        {
+            Log.Warn("[皮肤管理器] 无法找到选人按钮容器，无法在进入界面时初始化皮肤头像。");
+        }
+
+        // =========================================================
+        // 下面是原本注入皮肤选择面板的代码，保持不变
+        // =========================================================
         var infoPanel = __instance.GetNodeOrNull<Control>("CharSelectButtons");
         if (infoPanel == null)
         {
@@ -64,16 +95,17 @@ public static class UniversalUIPatches
         if (infoPanel.HasNode("UniversalSkinPanel"))
         {
             Log.Info("[皮肤管理器] 已经存在皮肤选择面板，不再重复操作。");
+            return true; // 🌟 修复：如果有就不加了，直接 return
         }
 
         try
         {
-            PackedScene panelScene = GD.Load<PackedScene>("res://Scene/UniversalSkinPanel.tscn");
+            PackedScene panelScene = ResourceLoader.Load<PackedScene>("res://Scene/UniversalSkinPanel.tscn");
             if (panelScene != null)
             {
                 Control panelVisuals = panelScene.Instantiate<Control>();
                 panelVisuals.Name = "Visuals";
-
+                
                 UniversalSkinPanel panelLogic = new UniversalSkinPanel();
                 panelLogic.Name = "UniversalSkinPanel";
                 panelLogic.Visible = false;
@@ -86,10 +118,7 @@ public static class UniversalUIPatches
                 Log.Error("[皮肤管理器] 未能成功加载皮肤选择面板。");
             }
         }
-        catch (System.Exception e)
-        {
-            Log.Error("[皮肤管理器] 注入皮肤选择面板失败: " + e.ToString());
-        }
+        catch (System.Exception e) { Log.Error("框架注入面板失败: " + e.ToString()); }
         
         return true;
     }
@@ -109,7 +138,10 @@ public static class UniversalUIPatches
             {
                 skinPanel.Visible = true;
                 skinPanel.RefreshPanel(charId, false); // 刷新但不触发自身背景更新
-                UpdateBackgroundToCurrentSkin(charId); // 手动触发背景更新
+                
+                // 🌟 同步更新大背景和小头像
+                UpdateBackgroundToCurrentSkin(charId);
+                UpdateSelectButtonIconToCurrentSkin(charId); 
             }
             else
             {
@@ -142,11 +174,12 @@ public static class UniversalUIPatches
         if (!string.IsNullOrEmpty(skin.IconScenePath))
         {
             Log.Info($"[皮肤管理器] 尝试从如下路径读取Icon。{ skin.IconScenePath }");
-            loadedIconData = GD.Load<PackedScene>(skin.IconScenePath);
+            loadedIconData = ResourceLoader.Load<PackedScene>(skin.IconScenePath);
         }
         else
         {
             Log.Info("[皮肤管理器] 当前皮肤没有可读取的Icon，停止替换。");
+            return true;
         }
         
         if (loadedIconData == null)
@@ -161,6 +194,59 @@ public static class UniversalUIPatches
         return false;
     }
     
+    
+    // 🌟 新增：动态更新选人按钮头像
+    public static void UpdateSelectButtonIconToCurrentSkin(string characterId)
+    {
+        if (CurrentScreenInstance == null || !GodotObject.IsInstanceValid(CurrentScreenInstance)) return;
+
+        // 获取选人界面的按钮容器
+        var buttonContainer = AccessTools.Field(typeof(NCharacterSelectScreen), "_charButtonContainer").GetValue(CurrentScreenInstance) as Control;
+        if (buttonContainer == null || !GodotObject.IsInstanceValid(buttonContainer)) return;
+
+        // 获取当前选中的皮肤数据
+        SkinData currentSkin = SkinApi.GetSelectedSkin(characterId);
+        if (currentSkin == null) return;
+
+        // 遍历所有角色按钮，找到对应当前角色的那个按钮
+        foreach (Node child in buttonContainer.GetChildren())
+        {
+            if (child is NCharacterSelectButton button && button.Character.Id.Entry == characterId)
+            {
+                // 如果角色被锁定，就不替换头像 (保持一把锁的样子)
+                if (button.IsLocked) return;
+
+                // 尝试加载皮肤专属的头像
+                Texture2D newIconTexture = null;
+                if (!string.IsNullOrEmpty(currentSkin.SelectIconPath))
+                {
+                    newIconTexture = ResourceLoader.Load<Texture2D>(currentSkin.SelectIconPath);
+                }
+
+                // 如果皮肤没有配置专属头像，就退回原版的头像
+                if (newIconTexture == null)
+                {
+                    newIconTexture = button.Character.CharacterSelectIcon;
+                }
+
+                // 获取按钮内部的 _icon 和 _iconAdd 节点并替换贴图
+                var iconRect = AccessTools.Field(typeof(NCharacterSelectButton), "_icon").GetValue(button) as TextureRect;
+                var iconAddRect = AccessTools.Field(typeof(NCharacterSelectButton), "_iconAdd").GetValue(button) as TextureRect;
+
+                if (iconRect != null && GodotObject.IsInstanceValid(iconRect))
+                {
+                    iconRect.Texture = newIconTexture;
+                }
+                
+                if (iconAddRect != null && GodotObject.IsInstanceValid(iconAddRect))
+                {
+                    iconAddRect.Texture = newIconTexture;
+                }
+
+                break; // 找到了就跳出循环
+            }
+        }
+    }
 
     /// <summary>
     /// 更新角色选择界面的大背景图。
@@ -305,6 +391,100 @@ public static class UniversalUIPatches
             {
                 __instance.AddChild(modSettingsContainer); // 将设置容器添加到 Mod 信息面板
             }
+        }
+    }
+}
+
+// =====================================================================
+// 🌟 新增：处理多人联机读取存档界面 (NMultiplayerLoadGameScreen) 的背景替换
+// =====================================================================
+
+[HarmonyPatch]
+public static class MultiplayerLoadGameUIPatches
+{
+    // 保存当前读取存档界面的实例
+    public static NMultiplayerLoadGameScreen CurrentLoadScreenInstance { get; private set; }
+
+    [HarmonyPatch(typeof(NMultiplayerLoadGameScreen), "AfterMultiplayerStarted")]
+    [HarmonyPostfix]
+    public static void OnMultiplayerLoadGameStarted(NMultiplayerLoadGameScreen __instance)
+    {
+        CurrentLoadScreenInstance = __instance;
+
+        // 1. 获取当前玩家的角色 ID
+        // 通过反射获取私有的 _runLobby
+        var runLobby = AccessTools.Field(typeof(NMultiplayerLoadGameScreen), "_runLobby").GetValue(__instance) as MegaCrit.Sts2.Core.Multiplayer.Game.Lobby.LoadRunLobby;
+        if (runLobby == null) return;
+
+        // 获取当前本地玩家的数据
+        var localPlayer = runLobby.Run.Players.FirstOrDefault(p => p.NetId == runLobby.NetService.NetId);
+        if (localPlayer == null) return;
+
+        string charId = localPlayer.CharacterId.Entry; // 注意在 SerializablePlayer 中叫 CharacterId
+
+        // 2. 调用专门为读取界面写的背景更新方法
+        UpdateLoadScreenBackgroundToCurrentSkin(charId);
+    }
+
+    /// <summary>
+    /// 更新多人联机读取存档界面的大背景图。
+    /// </summary>
+    public static void UpdateLoadScreenBackgroundToCurrentSkin(string characterId)
+    {
+        try
+        {
+            if (CurrentLoadScreenInstance == null || !GodotObject.IsInstanceValid(CurrentLoadScreenInstance)) return;
+
+            // 获取背景图容器节点 (_bgContainer)
+            var bgContainer = AccessTools.Field(typeof(NMultiplayerLoadGameScreen), "_bgContainer").GetValue(CurrentLoadScreenInstance) as Control;
+            if (bgContainer == null || !GodotObject.IsInstanceValid(bgContainer)) return;
+
+            // 检查当前角色是否有选中皮肤
+            SkinData currentSkin = SkinApi.GetSelectedSkin(characterId);
+            if (currentSkin == null) return;
+
+            // 确定要加载的背景图路径
+            string backgroundPathToUse = null;
+            bool useAI = true;
+
+            if (!string.IsNullOrEmpty(currentSkin.ModId))
+            {
+                useAI = UniversalSettingsManager.IsModAIBackgroundEnabled(currentSkin.ModId);
+            }
+
+            if (useAI && !string.IsNullOrEmpty(currentSkin.AIBackgroundScenePath))
+            {
+                backgroundPathToUse = currentSkin.AIBackgroundScenePath;
+            }
+            else if (!string.IsNullOrEmpty(currentSkin.BackgroundScenePath))
+            {
+                backgroundPathToUse = currentSkin.BackgroundScenePath;
+            }
+
+            // 加载并替换背景
+            if (!string.IsNullOrEmpty(backgroundPathToUse))
+            {
+                PackedScene myBgScene = ResourceLoader.Load<PackedScene>(backgroundPathToUse);
+                if (myBgScene != null)
+                {
+                    // 先清理原版的旧背景
+                    foreach (Node child in bgContainer.GetChildren())
+                    {
+                        if (child is CanvasItem)
+                            child.QueueFree();
+                    }
+
+                    Control myBg = myBgScene.Instantiate<Control>();
+                    myBg.Name = $"CustomLoadBG_{characterId}_{currentSkin.SkinId}";
+                    bgContainer.AddChild(myBg);
+                    
+                    MegaCrit.Sts2.Core.Logging.Log.Info($"[皮肤管理器] 成功替换联机读取界面的背景图: {characterId}");
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            MegaCrit.Sts2.Core.Logging.Log.Error($"[皮肤管理器] 加载联机读取界面背景时出错: {e}");
         }
     }
 }

@@ -40,8 +40,11 @@ public static class VoicePatches
         if (state != null)
         {
             // 🌟 遍历所有活着的玩家，都可以播语音（但由于框架的防重复或几率机制，你可以做限制）
-            var localPlayer = state.Players.FirstOrDefault();
-            if (localPlayer != null)
+            
+            int rand = (int)(GD.Randi() % state.Players.Count);
+            var localPlayer = state.Players[rand];
+        
+            if (localPlayer != null && localPlayer.Creature.IsAlive)
             {
                 VoicePlayer.PlayEvent(localPlayer.NetId, localPlayer.Character.Id.Entry, "EnterCombat");
             }
@@ -81,11 +84,16 @@ public static class VoicePatches
     [HarmonyPostfix]
     public static void OnPlayerTurnStart(MegaCrit.Sts2.Core.Entities.Players.Player player)
     {
-        if (player != null && player.Character != null)
+        var state = CombatManager.Instance.DebugOnlyGetState();
+        if (state != null)
         {
-            // 🌟 传入 NetId
-            VoicePlayer.ResetAfkTimer(player.NetId, player.Character.Id.Entry);
-            VoicePlayer.PlayEvent(player.NetId, player.Character.Id.Entry, "TurnStart");
+            if (player.Creature != null && !player.Creature.IsDead)
+            {
+                // 🌟 传入 NetId
+                VoicePlayer.ResetAfkTimer(player.NetId, player.Character.Id.Entry);
+                VoicePlayer.PlayEvent(player.NetId, player.Character.Id.Entry, "TurnStart");
+                return;
+            }
         }
     }
 
