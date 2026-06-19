@@ -338,7 +338,7 @@ public static class UniversalUIPatches
     {
         // 此补丁会在 Mod 列表中渲染每个 Mod 时被调用。
         string currentModId = mod.manifest.id; // 获取当前 Mod 的 ID
-
+        
         if (__instance.HasNode("ModSettingsContainer"))
         {
             var targetNode = __instance.GetNode<HBoxContainer>("ModSettingsContainer");
@@ -348,7 +348,45 @@ public static class UniversalUIPatches
             }
         }
         
-        if (!mod.manifest.dependencies.Contains("SkinManagerAndSkinPanelMod")) return;
+        bool hasDependency = false;
+        if (mod.manifest != null && mod.manifest.dependencies != null)
+        {
+            // 将列表强转为基础的 IEnumerable，这样新旧版本都不会报编译或类型错误
+            var dependencies = (System.Collections.IEnumerable)mod.manifest.dependencies;
+            
+            foreach (var dep in dependencies)
+            {
+                if (dep == null) continue;
+
+                // 1. 低版本兼容：如果依赖项是普通的 string
+                if (dep is string strDep)
+                {
+                    if (strDep == "SkinManagerAndSkinPanelMod")
+                    {
+                        hasDependency = true;
+                        break;
+                    }
+                }
+                // 2. 高版本兼容：如果依赖项是新的 ModDependency 对象
+                else
+                {
+                    // 使用 Harmony 的反射工具安全获取 id 字段，避免强引用导致老版本找不到类
+                    var idField = AccessTools.Field(dep.GetType(), "id");
+                    if (idField != null)
+                    {
+                        string depId = idField.GetValue(dep) as string;
+                        if (depId == "SkinManagerAndSkinPanelMod")
+                        {
+                            hasDependency = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 如果没有找到我们的框架依赖，则不添加 UI 设置
+        if (!hasDependency) return;
         
         // 检查当前 Mod 是否提供了 AI 背景图能力
         // 使用 UniversalSettingsManager 中提供的方法来获取所有提供 AI 背景的 Mod ID 列表
@@ -392,6 +430,47 @@ public static class UniversalUIPatches
                 __instance.AddChild(modSettingsContainer); // 将设置容器添加到 Mod 信息面板
             }
         }
+    }
+    
+    [HarmonyPatch(typeof(NCharacterSelectScreen), "StartNewSingleplayerRun")]
+    [HarmonyPrefix]
+    public static void OnSinglePlayerRandomResolvedPrefix(NCharacterSelectScreen __instance, out CharacterModel __state)
+    {
+        // 我们利用 __state 保存一下抽卡之前的角色（通常是 RandomCharacter）
+        __state = __instance.Lobby.LocalPlayer.character;
+    }
+
+    [HarmonyPatch(typeof(NCharacterSelectScreen), "StartNewSingleplayerRun")]
+    [HarmonyPostfix]
+    public static void OnSinglePlayerRandomResolvedPostfix(NCharacterSelectScreen __instance, CharacterModel __state)
+    {
+        // 如果抽卡之前的角色是 Random，说明刚刚发生了一次随机抽取！
+        if (__state is RandomCharacter)
+        {
+            // 此时 Lobby 里的角色已经是抽出的真实角色了
+            string charId = __instance.Lobby.LocalPlayer.character.Id.Entry;
+            
+            // 强制刷新一次背景！
+            UpdateBackgroundToCurrentSkin(charId);
+            
+            // (可选) 如果你想要随机到你的角色时也播一下语音
+            // VoicePlayer.PlayEvent(localPlayer.NetId, charId, "EnterCombat");
+        }
+    }
+
+    // =================================================================
+    // 🌟 新增：拦截多人游戏/随机展示的背景加载
+    // =================================================================
+    [HarmonyPatch(typeof(NCharacterSelectScreen), "OnLocalCharacterChangedForRandom")]
+    [HarmonyPostfix]
+    public static void OnMultiplayerRandomResolved(NCharacterSelectScreen __instance, CharacterModel characterModel)
+    {
+        // 这里是专门为了让玩家在看到抽卡结果的那 1 秒延迟中，看到正确的皮肤背景
+        string charId = characterModel.Id.Entry;
+
+        // 由于原版在这个方法里又 `AddChildSafely(control)` 了一个新背景
+        // 我们只需调用我们的通用方法，它会自动 `QueueFree` 掉原版的，换上皮肤的！
+        UpdateBackgroundToCurrentSkin(charId);
     }
 }
 

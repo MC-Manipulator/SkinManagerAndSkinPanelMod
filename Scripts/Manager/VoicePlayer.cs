@@ -211,7 +211,6 @@ public static class VoicePlayer
         
         AudioStream stream = ResourceLoader.Load<AudioStream>(path);
 
-        // 确保播放器节点存在
         if (_playerNode == null || !GodotObject.IsInstanceValid(_playerNode))
         {
             _playerNode = new AudioStreamPlayer();
@@ -219,7 +218,6 @@ public static class VoicePlayer
             _playerNode.Bus = "Master";
             _playerNode.VolumeLinear = 0.3f;
             
-            // 挂载到游戏的全局根节点，保证场景切换声音不断
             NGame.Instance.AddChild(_playerNode);
         }
 
@@ -285,21 +283,39 @@ public static class VoicePlayer
 
     private static void OnAfkTimeout()
     {
-        if (CombatManager.Instance != null && CombatManager.Instance.IsInProgress && CombatManager.Instance.IsPlayPhase)
+        if (CombatManager.Instance != null && CombatManager.Instance.IsInProgress)
         {
             var state = CombatManager.Instance.DebugOnlyGetState();
             if (state != null)
             {
+                // ================= 🌟 核心修复：替代 IsPlayPhase 的逻辑 🌟 =================
+                // 1. 必须是玩家回合
+                if (state.CurrentSide != MegaCrit.Sts2.Core.Combat.CombatSide.Player)
+                {
+                    StopAfkTimer(); // 敌方回合，不要倒计时
+                    return;
+                }
+
+                // 2. 玩家的动作不能被禁用 (比如正在结算某些过场动画)
+                if (CombatManager.Instance.PlayerActionsDisabled)
+                {
+                    // 只是暂时禁用，可能在看动画，不停止倒计时，只是不触发语音
+                    _afkTimer.Start(); 
+                    return;
+                }
+
+                // 3. 检查当前计时的玩家是否存活
                 var player = state.Players.FirstOrDefault(p => p.NetId == _currentAfkPlayerId);
-                if (player != null && player.Creature != null && player.Creature.IsDead)
+                if (player == null || player.Creature == null || player.Creature.IsDead)
                 {
                     StopAfkTimer();
                     return;
                 }
-            }
 
-            PlayEvent(_currentAfkPlayerId, _currentAfkCharacterId, "IdleWait");
-            _afkTimer.Start(); 
+                // 如果通过了以上所有考验，说明玩家真的在发呆思考！播放待机语音！
+                PlayEvent(_currentAfkPlayerId, _currentAfkCharacterId, "IdleWait");
+                _afkTimer.Start(); 
+            }
         }
     }
 }

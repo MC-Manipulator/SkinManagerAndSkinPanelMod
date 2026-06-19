@@ -12,8 +12,6 @@ Global
 		{A2B9519D-1922-4276-B458-2DA109F3FE7C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A2B9519D-1922-4276-B458-2DA109F3FE7C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A2B9519D-1922-4276-B458-2DA109F3FE7C}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
-		{A2B9519D-1922-4276-B458-2DA109F3FE7C}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
 		{A2B9519D-1922-4276-B458-2DA109F3FE7C}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
-		{A2B9519D-1922-4276-B458-2DA109F3FE7C}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
 	EndGlobalSection
 EndGlobal

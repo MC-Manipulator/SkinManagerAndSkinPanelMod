@@ -63,7 +63,7 @@ public static class VoicePatches
         }
         else if (__instance.IsEnemy || __instance.IsMonster)
         {
-            var combatState = __instance.CombatState;
+            var combatState = MegaCrit.Sts2.Core.Combat.CombatManager.Instance?.DebugOnlyGetState();
             if (combatState != null)
             {
                 // 这里的击杀逻辑比较粗糙（只找了第一个玩家）。

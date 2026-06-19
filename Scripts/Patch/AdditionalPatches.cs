@@ -20,7 +20,7 @@ using SkinManagerAndSkinPanelMod.Scripts.Helper;
 namespace SkinManagerAndSkinPanelMod;
 
 [HarmonyPatch]
-public static class SovereignBladeVfx
+public static class AdditionalPatches
 {
     [HarmonyPatch(typeof(NSovereignBladeVfx), nameof(NSovereignBladeVfx._Ready))]
     [HarmonyPostfix]
@@ -200,16 +200,42 @@ public static class SovereignBladeVfx
             return;
         }
 
+        if (!skin.EnableOstyInRestSite)
+        {
+            Log.Info($"[皮肤管理器] {skin.SkinId} 正在尝试寻找并关闭奥斯提spine模型。");
+            foreach (Node2D spineNode in __instance.GetChildren().OfType<Node2D>())
+            {
+                if (spineNode.GetClass() == "SpineSprite"  && spineNode.Name == "Osty")
+                {
+                    spineNode.Visible = false;
+                
+                    foreach (Node2D spineNode2 in spineNode.GetChildren().OfType<Node2D>())
+                    {
+                        if (spineNode2.Name == "SpineSlotNode")
+                        {
+                            spineNode2.Visible = false;
+                        }
+                    }
+                }
+            }
+            
+            return;
+        }
+
         if (string.IsNullOrEmpty(skin.OstyRestSiteSpineDataPath))
         {
             LogHelper.LogEmptyPath("奥斯提spine资源", skin);
         }
         
-        LogHelper.LogReplace("奥斯提spine资源", skin);
         Resource loadedSpineData = null;
         if (!string.IsNullOrEmpty(skin.OstyRestSiteSpineDataPath))
         {
+            LogHelper.LogReplace("奥斯提spine资源", skin);
             loadedSpineData = ResourceLoader.Load<Resource>(skin.OstyRestSiteSpineDataPath);
+        }
+        else
+        {
+            return;
         }
 
         if (loadedSpineData == null)

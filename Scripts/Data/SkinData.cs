@@ -62,6 +62,7 @@ public class SkinData
     
     public string RestSiteAnimName = "Sit";
     public string OstyRestSiteAnimName = "Sit";
+    public bool EnableOstyInRestSite = true;
     
     public Dictionary<string, string> CustomImpactVfxMap = new Dictionary<string, string>();
     
