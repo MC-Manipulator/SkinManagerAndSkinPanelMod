@@ -33,6 +33,8 @@ public static class UniversalSettingsManager
         {"ja", "日本語"}
     };
     
+    public static Vector2 PanelPosition { get; set; } = new Vector2(1350f, 300f);
+    
     // 在框架的 Initialize 方法中调用，负责加载所有通用设置
     public static void InitializeUniversalSettings()
     {
@@ -69,6 +71,10 @@ public static class UniversalSettingsManager
                     string lang = (string)config.GetValue("SkinLanguageSettings", skinKey, "zh"); // Default to "zh"
                     _skinSpecificLanguage[skinKey] = lang;
                 }
+                
+                float posX = (float)config.GetValue("UISettings", "PanelPosX", 1350f);
+                float posY = (float)config.GetValue("UISettings", "PanelPosY", 300f);
+                PanelPosition = new Vector2(posX, posY);
             }
         }
         catch (System.Exception e)
@@ -105,12 +111,21 @@ public static class UniversalSettingsManager
                 config.SetValue("SkinLanguageSettings", kvp.Key, kvp.Value);
             }
             
+            config.SetValue("UISettings", "PanelPosX", PanelPosition.X);
+            config.SetValue("UISettings", "PanelPosY", PanelPosition.Y);
             config.Save(SettingsPath);
         }
         catch (System.Exception e)
         {
             GD.PrintErr($"[皮肤管理器] 没能成功保存数据: {e.Message}");
         }
+    }
+    
+    // 🌟 新增：专供外部调用的保存位置方法，每次拖动完调用 🌟
+    public static void SavePanelPosition(Vector2 newPosition)
+    {
+        PanelPosition = newPosition;
+        SaveUniversalSettings(); // 立即写入硬盘
     }
     
     /// <summary>

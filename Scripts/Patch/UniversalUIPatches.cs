@@ -85,7 +85,10 @@ public static class UniversalUIPatches
         // =========================================================
         // 下面是原本注入皮肤选择面板的代码，保持不变
         // =========================================================
-        var infoPanel = __instance.GetNodeOrNull<Control>("CharSelectButtons");
+        //var infoPanel = __instance.GetNodeOrNull<Control>("CharSelectButtons");
+        var infoPanel = (Control)__instance;
+        
+        var comfirmButton = __instance.GetNodeOrNull<Control>("ConfirmButton");
         if (infoPanel == null)
         {
             Log.Error("[皮肤管理器] 未能找到选择角色按钮列表，皮肤选择面板注入失败。");
@@ -95,6 +98,8 @@ public static class UniversalUIPatches
         if (infoPanel.HasNode("UniversalSkinPanel"))
         {
             Log.Info("[皮肤管理器] 已经存在皮肤选择面板，不再重复操作。");
+            //var node = infoPanel.GetNode<Control>("UniversalSkinPanel");
+            //node.Position = comfirmButton.Position+ new Vector2(-700, -550);
             return true; // 🌟 修复：如果有就不加了，直接 return
         }
 
@@ -109,9 +114,14 @@ public static class UniversalUIPatches
                 UniversalSkinPanel panelLogic = new UniversalSkinPanel();
                 panelLogic.Name = "UniversalSkinPanel";
                 panelLogic.Visible = false;
-
+                
+                panelLogic.CustomMinimumSize = new Vector2(500, 400); 
+                panelLogic.Size = new Vector2(500,400);
+                
                 panelLogic.AddChild(panelVisuals);
                 infoPanel.AddChildSafely(panelLogic);
+
+                panelLogic.Position = UniversalSettingsManager.PanelPosition;
             }
             else
             {
@@ -131,7 +141,7 @@ public static class UniversalUIPatches
         CurrentScreenInstance = __instance;
         string charId = characterModel.Id.Entry;
 
-        var skinPanel = __instance.GetNodeOrNull<UniversalSkinPanel>("CharSelectButtons/UniversalSkinPanel");
+        var skinPanel = __instance.GetNodeOrNull<UniversalSkinPanel>("UniversalSkinPanel");
         if (skinPanel != null)
         {
             if (SkinApi.HasSkins(charId))

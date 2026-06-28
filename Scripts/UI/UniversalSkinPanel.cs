@@ -1,4 +1,5 @@
-﻿using Godot;
+﻿using System.Diagnostics;
+using Godot;
 using MegaCrit.Sts2.Core.Bindings.MegaSpine;
 using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Logging;
@@ -19,6 +20,13 @@ public partial class UniversalSkinPanel : Control
     private Vector2 spineNodePosition;
     private OptionButton _languageSelector; // Use OptionButton for dropdown
 
+    // ================= 🌟 拖动逻辑所需的变量 🌟 =================
+    private bool _isDragging = false;       // 记录当前是否正在被拖动
+    private Vector2 _dragStartMousePos;     // 鼠标刚按下时的屏幕坐标
+    private Vector2 _dragStartPanelPos;     // 鼠标刚按下时面板的坐标
+    // ==========================================================
+    
+    
     public override void _Ready()
     {
         _leftArrow = GetNode<TextureButton>("Visuals/HBoxContainer/LeftArrow");
@@ -38,6 +46,49 @@ public partial class UniversalSkinPanel : Control
         _voiceCheckBox.Toggled += OnVoiceToggled;
         _languageSelector.ItemSelected += OnLanguageSelected; // Connect signal for language change
 
+        // 🌟 必须设置鼠标过滤器，让面板能够接收鼠标事件！
+        // 如果设置为 Ignore，鼠标事件会穿透面板，拖动逻辑将无法触发。
+        this.MouseFilter = MouseFilterEnum.Stop;
+    }
+    
+    public override void _GuiInput(InputEvent @event)
+    {
+        // 1. 处理鼠标按键事件 (按下与松开)
+        if (@event is InputEventMouseButton mouseButton)
+        {
+            // 只响应鼠标左键
+            if (mouseButton.ButtonIndex == MouseButton.Left)
+            {
+                if (mouseButton.Pressed)
+                {
+                    // 鼠标按下，开始拖动！
+                    _isDragging = true;
+                    // 记录鼠标按下时的屏幕坐标
+                    _dragStartMousePos = mouseButton.GlobalPosition;
+                    // 记录此时面板的坐标
+                    _dragStartPanelPos = this.Position;
+                }
+                else
+                {
+                    // 鼠标松开，停止拖动
+                    _isDragging = false;
+                    UniversalSettingsManager.SavePanelPosition(this.Position);
+                }
+            }
+        }
+        
+        // 2. 处理鼠标移动事件 (拖动过程)
+        else if (@event is InputEventMouseMotion mouseMotion)
+        {
+            if (_isDragging)
+            {
+                // 计算鼠标相对于按下时移动了多少距离
+                Vector2 dragOffset = mouseMotion.GlobalPosition - _dragStartMousePos;
+                
+                // 将面板的位置设置为初始位置加上偏移量
+                this.Position = _dragStartPanelPos + dragOffset;
+            }
+        }
     }
     
     // --- !!! NEW: Language Selected Handler !!! ---
