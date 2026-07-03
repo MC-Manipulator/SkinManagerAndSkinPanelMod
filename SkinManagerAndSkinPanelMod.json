@@ -3,7 +3,7 @@
   "name": "皮肤管理器与皮肤面板模组",
   "author": "bilibili: 傀儡师_lite",
   "description": "该Mod提供统一替换、管理杀戮尖塔2原版角色spine模型的接口，同时在选择角色界面提供一个切换皮肤的面板。",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "has_pck": true,
   "has_dll": true,
   "dependencies": [],

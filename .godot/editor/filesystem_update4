@@ -1,5 +1,3 @@
 res://Scripts/UI/VoiceSubtitleVfx.cs
 res://Scripts/UI/UniversalSkinPanel.cs
 res://MainFile.cs
-res://Scene/UniversalSkinPanel.tscn
-res://Shaders/outline.gdshader
