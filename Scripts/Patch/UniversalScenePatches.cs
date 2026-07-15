@@ -22,6 +22,8 @@ namespace SkinManagerAndSkinPanelMod;
 [HarmonyPatch]
 public static class UniversalScenePatches
 {
+    private static System.Random _r = new System.Random();
+    
     // ==========================================
     // ⚔️ 1. 战斗房间 (Combat Room)
     // ==========================================
@@ -108,7 +110,7 @@ public static class UniversalScenePatches
         SkinData skin = SkinApi.GetSelectedSkin(charId);
         if (skin == null)
         {
-            Log.Info("[皮肤管理器] 未读取到皮肤，停止修改动画Trigger。");
+            //Log.Info("[皮肤管理器] 未读取到皮肤，停止修改动画Trigger。");
             return true;
         }
 
@@ -118,13 +120,12 @@ public static class UniversalScenePatches
         {
             if (animMap != null)
             {
-                System.Random r = new System.Random();
                 int total = 0;
                 foreach (var weight in animMap.Values)
                 {
                     total += weight;
                 }
-                int i = r.Next(0, total);
+                int i = _r.Next(0, total);
                 string rolledKey = trigger;
                 foreach (var key in animMap.Keys)
                 {
@@ -136,7 +137,7 @@ public static class UniversalScenePatches
                     }
                 }
                 
-                Log.Info("[皮肤管理器] 权重随机动画结果：" + trigger + "=>" + rolledKey);
+                //Log.Info("[皮肤管理器] 权重随机动画结果：" + trigger + "=>" + rolledKey);
                 trigger = rolledKey;
             }
         }

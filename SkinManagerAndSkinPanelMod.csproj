@@ -5,6 +5,10 @@
         <Nullable>enable</Nullable> <!--Makes code analysis regarding null values stricter.-->
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <DefaultItemExcludes>packages\**</DefaultItemExcludes>
+        <Version></Version>
+        <Authors>manipulator_lite</Authors>
+        <AssemblyVersion></AssemblyVersion>
+        <FileVersion></FileVersion>
     </PropertyGroup>
     
 
